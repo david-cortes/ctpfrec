@@ -8,7 +8,7 @@ As it takes side information about items, it has the advantage of being able to 
 
 Supports parallelization, different stopping criteria for the optimziation procedure, and adding users/items without refitting the model entirely. The bottleneck computations are written in fast Cython code.
 
-For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec). For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec)
+For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec). For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec).
 
 ## Model description
 
@@ -61,7 +61,7 @@ However, Poisson likelihood is given by the formula:
 If taking the logarithm (log-likelihood), then this becomes:
 ```l(y) = -log(y!) + y*log(yhat) - yhat```
 
-Since `log(0!) = 0`, and the sum of predictions for all combinations of users and items can be quickly calculated by `sum yhat = sum_{i,j} <N_i, T_j + E_j> = <sum_i N_i, sum_j (T_j + E_j)>` (since `N`, `T` and `E` are non-negative matrices), it means the model doesn't ever need to make calculations on values that are equal to zero - simply not adding them to calculations would implicitly assume that they are zero.
+Since `log(0!) = 0`, `0*log(yhat) = 0`, and the sum of predictions for all combinations of users and items can be quickly calculated by `sum yhat = sum_{i,j} <U_i, V_j> = <sum_i U_i, sum_j V_j>` (since `U` and `V` are non-negative matrices), it means the model doesn't ever need to make calculations on values that are equal to zero in order to determine their Poisson log-likelihood.
 
 Moreover, negative Poisson log-likelihood is a more appropriate loss for count data than squared loss, which tends to produce not-so-good results when the values to predict follow an exponential rather than a normal distribution.
 
@@ -119,7 +119,7 @@ recommender.predict(user=10, item=11)
 recommender.predict(user=[10,10,10], item=[1,2,3])
 recommender.predict(user=[10,11,12], item=[4,5,6])
 
-## Evaluating Poisson likelihood
+## Evaluating Poisson log-likelihood
 recommender.eval_llk(counts_df, full_llk=True)
 
 ## Adding new items without refitting
