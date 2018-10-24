@@ -634,7 +634,7 @@ class CTPF:
 
 	def _standardize_counts(self, df, col1='ItemId', col2='WordId'):
 		if self.standardize_items:
-			sum_by_item = df.groupby(col1)[col2].sum()
+			sum_by_item = df.groupby(col1)['Count'].sum()
 			if self.is_fitted:
 				if (col1=='UserId') and (col2=='ItemId'):
 					target_factor = self.rescale_const_counts_df_
@@ -654,7 +654,7 @@ class CTPF:
 					self.rescale_const_user_df_ = target_factor
 				else:
 					self._unexpected_err_msg()
-			df = pd.merge(df, sum_by_item.to_frame().reset_index(drop=False).rename(columns={col2:'SumCounts'}))
+			df = pd.merge(df, sum_by_item.to_frame().reset_index(drop=False).rename(columns={'Count':'SumCounts'}))
 			df['Count'] = target_factor * df.Count.values / df.SumCounts.values
 			df = df[[col1, col2, 'Count']]
 		return df
