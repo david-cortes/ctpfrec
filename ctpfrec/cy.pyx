@@ -212,7 +212,7 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			## Eps_shp := g + sum_u(Yc + Yd)
 			## Eps_rte := h + sum_u(Omega + Eta)
 			Eps_shp[:,:] = g
-			update_Eta_shp(&Eps_shp[0,0], &Yc[0,0], &Yd[0,0], &ix_u_r[0], nR, k, nthreads)
+			update_Eta_shp(&Eps_shp[0,0], &Yc[0,0], &Yd[0,0], &ix_d_r[0], nR, k, nthreads)
 			Eps_rte[:,:] = h + (Omega + Eta).sum(axis=0, keepdims=True)
 			Eps[:,:] = Eps_shp / Eps_rte
 

@@ -166,6 +166,7 @@ c = CTPF()
 c.step_size = None
 pickle.dump(c, open("CTPF_obj.p", "wb"))
 ```
+(Note however that you won't be able to use 'partial_fit' afterwards)
 
 ## References
 [1] Gopalan, Prem K., Laurent Charlin, and David Blei. "Content-based recommendations with poisson factorization." Advances in Neural Information Processing Systems. 2014.
