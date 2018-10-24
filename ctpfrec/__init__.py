@@ -628,6 +628,7 @@ class CTPF:
 			msg = "'" + ttl + "' contains observations with a count value less than one, these will be ignored."
 			msg += " Any " + subj + " associated exclusively with zero-value observations will be excluded."
 			msg += " If using 'reindex=False', make sure that your data still meets the necessary criteria."
+			msg += "If you wish to use values less than 1, set a different 'stop_crit'."
 			warnings.warn(msg)
 			df = df.loc[~obs_zero]
 		return df
