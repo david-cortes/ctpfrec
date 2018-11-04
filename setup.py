@@ -29,7 +29,7 @@ setup(
    'cython',
    'hpfrec'
 ],
-  version = '0.1.3.1',
+  version = '0.1.3.2',
   description = 'Collaborative topic Poisson factorization for recommender systems',
   author = 'David Cortes',
   author_email = 'david.cortes.rivera@gmail.com',

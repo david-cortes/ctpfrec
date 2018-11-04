@@ -20,7 +20,7 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			 np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Eta,
 			 np.ndarray[float, ndim=2] Eps, np.ndarray[float, ndim=2] Omega,
 			 user_df, has_user_df,
-			 df, W, int k, step_size, has_step_size, int sum_exp_trick,
+			 df, W, size_t k, step_size, has_step_size, int sum_exp_trick,
 			 float a, float b, float c, float d, float e, float f, float g, float h,
 			 int nthreads, int maxiter, int miniter, int check_every,
 			 stop_crit, stop_thr, verbose, save_folder,
@@ -29,26 +29,26 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			 ):
 	# TODO: implement stochastic variational inference taking CSR data and small Z-X-Y matrices (take from hpfrec)
 	# TODO: for the SVI model with user and item info, alternate between epochs of users and items
-	cdef int nR = df.shape[0]
-	cdef int nW = W.shape[0]
-	cdef int nusers = Eta_shp.shape[0]
-	cdef int nitems = Theta_shp.shape[0]
-	cdef int nwords = Beta_shp.shape[0]
+	cdef size_t nR = df.shape[0]
+	cdef size_t nW = W.shape[0]
+	cdef size_t nusers = Eta_shp.shape[0]
+	cdef size_t nitems = Theta_shp.shape[0]
+	cdef size_t nwords = Beta_shp.shape[0]
 	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
-	cdef np.ndarray[int, ndim=1] ix_d_w = W.ItemId.values
-	cdef np.ndarray[int, ndim=1] ix_v_w = W.WordId.values
+	cdef np.ndarray[size_t, ndim=1] ix_d_w = W.ItemId.values
+	cdef np.ndarray[size_t, ndim=1] ix_v_w = W.WordId.values
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[int, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[int, ndim=1] ix_d_r = df.ItemId.values
+	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[size_t, ndim=1] ix_d_r = df.ItemId.values
 
 	cdef np.ndarray[float, ndim=1] Rval = val_df.Count.values
-	cdef np.ndarray[int, ndim=1] ix_u_val = val_df.UserId.values
-	cdef np.ndarray[int, ndim=1] ix_d_val = val_df.ItemId.values
-	cdef int nRv = val_df.shape[0]
+	cdef np.ndarray[size_t, ndim=1] ix_u_val = val_df.UserId.values
+	cdef np.ndarray[size_t, ndim=1] ix_d_val = val_df.ItemId.values
+	cdef size_t nRv = val_df.shape[0]
 
 	cdef np.ndarray[float, ndim=1] Qarr
-	cdef np.ndarray[int, ndim=1] ix_u_q, ix_a_q
-	cdef int nQ, nattr
+	cdef np.ndarray[size_t, ndim=1] ix_u_q, ix_a_q
+	cdef size_t nQ, nattr
 	if has_user_df:
 		Qarr = user_df.Count.values
 		ix_u_q = user_df.UserId.values
@@ -272,10 +272,10 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 					   np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Theta_prev,
 					   np.ndarray[float, ndim=2] Eta, np.ndarray[float, ndim=2] Eps,
-					   int nY,
-					   np.ndarray[float, ndim=1] Y, np.ndarray[int, ndim=1] ix_u, np.ndarray[int, ndim=1] ix_i, int nYv,
-					   np.ndarray[float, ndim=1] Yval, np.ndarray[int, ndim=1] ix_u_val, np.ndarray[int, ndim=1] ix_i_val,
-					   np.ndarray[long double, ndim=1] errs, int k, int nthreads, int verbose, int full_llk, has_valset):
+					   size_t nY,
+					   np.ndarray[float, ndim=1] Y, np.ndarray[size_t, ndim=1] ix_u, np.ndarray[size_t, ndim=1] ix_i, size_t nYv,
+					   np.ndarray[float, ndim=1] Yval, np.ndarray[size_t, ndim=1] ix_u_val, np.ndarray[size_t, ndim=1] ix_i_val,
+					   np.ndarray[long double, ndim=1] errs, size_t k, int nthreads, int verbose, int full_llk, has_valset):
 
 	cdef np.ndarray[float, ndim=2] M2
 
@@ -318,14 +318,14 @@ def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 
 ### Functions for updating without refitting
 ############################################
-def calc_item_factors(W, int nitems, int maxiter, int k, stop_thr, random_seed, int nthreads,
+def calc_item_factors(W, size_t nitems, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
 					  float a, float b, float c, float d,
 					  np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Beta_shp, np.ndarray[float, ndim=2] Beta_rte):
 	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
-	cdef np.ndarray[int, ndim=1] ix_i_w = W.ItemId.values
-	cdef np.ndarray[int, ndim=1] ix_v_w = W.WordId.values
-	cdef int nW = W.shape[0]
+	cdef np.ndarray[size_t, ndim=1] ix_i_w = W.ItemId.values
+	cdef np.ndarray[size_t, ndim=1] ix_v_w = W.WordId.values
+	cdef size_t nW = W.shape[0]
 
 	if random_seed is not None:
 		np.random.seed(random_seed)
@@ -351,14 +351,14 @@ def calc_item_factors(W, int nitems, int maxiter, int k, stop_thr, random_seed, 
 
 	return Theta_shp, Z
 
-def calc_user_factors(df, int nusers, int maxiter, int k, stop_thr, random_seed, int nthreads,
+def calc_user_factors(df, size_t nusers, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
 					  float e, np.ndarray[float, ndim=2] Eta_rte,
 					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte):
-	cdef int nR = df.shape[0]
+	cdef size_t nR = df.shape[0]
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[int, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[int, ndim=1] ix_i_r = df.ItemId.values
+	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[size_t, ndim=1] ix_i_r = df.ItemId.values
 	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype='float32')
@@ -391,15 +391,15 @@ def calc_user_factors(df, int nusers, int maxiter, int k, stop_thr, random_seed,
 
 	return Eta_shp
 
-def calc_user_factors_full(df, user_df, int nusers, int maxiter, int k, stop_thr, random_seed, int nthreads,
+def calc_user_factors_full(df, user_df, size_t nusers, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
 					  float c, float e, np.ndarray[float, ndim=2] Omega_rte, np.ndarray[float, ndim=2] Eta_rte,
 					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte,
 					  np.ndarray[float, ndim=2] Kappa_shp, np.ndarray[float, ndim=2] Kappa_rte):
-	cdef int nR = df.shape[0]
+	cdef size_t nR = df.shape[0]
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[int, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[int, ndim=1] ix_i_r = df.ItemId.values
+	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[size_t, ndim=1] ix_i_r = df.ItemId.values
 
 	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
@@ -410,10 +410,10 @@ def calc_user_factors_full(df, user_df, int nusers, int maxiter, int k, stop_thr
 	cdef np.ndarray[float, ndim=2] Yd = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Yd_const = np.empty((nR, k), dtype='float32')
 
-	cdef int nQ = user_df.shape[0]
+	cdef size_t nQ = user_df.shape[0]
 	cdef np.ndarray[float, ndim=1] Qarr = user_df.Count.values
-	cdef np.ndarray[int, ndim=1] ix_u_q = user_df.UserId.values
-	cdef np.ndarray[int, ndim=1] ix_a_q = user_df.AttributeId.values
+	cdef np.ndarray[size_t, ndim=1] ix_u_q = user_df.UserId.values
+	cdef np.ndarray[size_t, ndim=1] ix_a_q = user_df.AttributeId.values
 	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype='float32')
 
 	if random_seed is not None:
@@ -467,10 +467,10 @@ def calc_user_factors_full(df, user_df, int nusers, int maxiter, int k, stop_thr
 @cython.cdivision(True)
 cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 					 float* Beta_shp, float* Beta_rte, float* W,
-					 int* ix_d, int* ix_v, int sum_exp_trick,
-					 int nW, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_z, st_ix_theta, st_ix_beta
+					 size_t* ix_d, size_t* ix_v, int sum_exp_trick,
+					 size_t nW, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_z, st_ix_theta, st_ix_beta
 	cdef float sumrow, maxval
 
 	if sum_exp_trick:
@@ -479,7 +479,7 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 			st_ix_theta = ix_d[i] * K
 			st_ix_beta = ix_v[i] * K
 			sumrow = 0
-			maxval =  - 10**11
+			maxval =  - 10**1
 			for k in range(K):
 				Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
 				if Z[st_ix_z + k] > maxval:
@@ -502,45 +502,15 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 			for k in range(K):
 				Z[st_ix_z + k] *= W[i] / sumrow
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Z_csr(float* Z, float* Theta_shp, float* Theta_rte,
-					   float* Beta_shp, float* Beta_rte, float* W,
-					   int* docs_batch, int* st_ix_doc, int* ix_v,
-					   int ndocs, int K, int nthreads) nogil:
-	cdef int d, did, nobs, i, k
-	cdef int st_ix_z, st_ix_theta, st_ix_beta
-	cdef float sumrow, maxval
-
-	for d in prange(ndocs, schedule='dynamic', num_threads=nthreads):
-		did = docs_batch[d]
-		nobs = st_ix_doc[did + 1] - st_ix_doc[did]
-		st_ix_theta = did * K
-		for i in range(nobs):
-			st_ix_z = (i + st_ix_doc[did]) * K
-			st_ix_beta = ix_v[i + st_ix_doc[did]] * K
-			sumrow = 0
-			maxval =  - 10**11
-			for k in range(K):
-				Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
-				if Z[st_ix_z + k] > maxval:
-					maxval = Z[st_ix_z + k]
-			for k in range(K):
-				Z[st_ix_z + k] = exp(Z[st_ix_z + k] - maxval)
-				sumrow += Z[st_ix_z + k]
-			for k in range(K):
-				Z[st_ix_z + k] *= W[i] / sumrow
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float* Beta_rte,
-							  int* ix_d, int* ix_v, int nW, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_z, st_ix_beta
+							  size_t* ix_d, size_t* ix_v, size_t nW, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_z, st_ix_beta
 
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_z = i * K
@@ -552,17 +522,17 @@ cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp, int* ix_d,
-							int nW, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_z, st_ix_theta
+cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp, size_t* ix_d,
+							size_t nW, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_z, st_ix_theta
 	cdef float sumrow, maxval
 
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_z = i * K
 		st_ix_theta = ix_d[i] * K
 		sumrow = 0
-		maxval = - 10**11
+		maxval = - 10**1
 		for k in range(K):
 			Z[st_ix_z + k] = Theta_shp[st_ix_theta + k] + Zconst[st_ix_z + k]
 			if Z[st_ix_z + k] > maxval:
@@ -578,10 +548,10 @@ cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* Theta_shp, float* Theta_rte,
-				   float* Eps_shp, float* Eps_rte, float* R, int* ix_u_r, int* ix_d_r, int sum_exp_trick,
-				   int nR, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_y, st_ix_u, st_ix_d, ix_2
+				   float* Eps_shp, float* Eps_rte, float* R, size_t* ix_u_r, size_t* ix_d_r, int sum_exp_trick,
+				   size_t nR, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef float E_eta, sumrow, maxval
 
 	if sum_exp_trick:
@@ -632,10 +602,10 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 @cython.cdivision(True)
 cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 					   float* Theta_shp, float* Theta_rte, float* Eps_shp, float* Eps_rte,
-					   float* R, int* ix_u_r, int* docs_batch, int* st_ix_doc,
-					   int ndocs, int K, int nthreads) nogil:
-	cdef int d, did, nobs, i, k
-	cdef int st_ix_y, st_ix_u, st_ix_d, ix_2
+					   float* R, size_t* ix_u_r, size_t* docs_batch, size_t* st_ix_doc,
+					   size_t ndocs, size_t K, int nthreads) nogil:
+	cdef size_t d, did, nobs, i, k
+	cdef size_t st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef float E_eta, sumrow, maxval
 
 	## comment: using schedule='dynamic' results in NA values
@@ -670,10 +640,10 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
-						   int* ix_d_w, int* ix_d_r, int nW, int nR, int K,
+						   size_t* ix_d_w, size_t* ix_d_r, size_t nW, size_t nR, size_t K,
 						   int allow_inconsistent, int nthreads) nogil:
-	cdef int i, j, k
-	cdef int st_ix_theta, st_ix_z, st_ix_y
+	cdef size_t i, j, k
+	cdef size_t st_ix_theta, st_ix_z, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
 			st_ix_theta = ix_d_w[i] * K
@@ -702,10 +672,10 @@ cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Yb,
-						   int* ix_d_w, int* ix_d_r, int nW, int nR, int K,
+						   size_t* ix_d_w, size_t* ix_d_r, size_t nW, size_t nR, size_t K,
 						   int allow_inconsistent, int nthreads) nogil:
-	cdef int i, j, k
-	cdef int st_ix_theta, st_ix_z, st_ix_y
+	cdef size_t i, j, k
+	cdef size_t st_ix_theta, st_ix_z, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
 			st_ix_theta = ix_d_w[i] * K
@@ -733,48 +703,10 @@ cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Y
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Theta_shp_csr(float* Theta_shp, float* Z, float* Ya,
-							   int* st_ix_doc_R, int* st_ix_doc_W, int* docs_batch,
-							   int ndocs, int K, int nthreads) nogil:
-	cdef int d, did, nobsR, nobsW, i, j, k
-	cdef int nobs_remainder
-	cdef int st_ix_theta, st_ix_z, st_ix_y
-
-	for d in prange(ndocs, schedule='dynamic', num_threads=nthreads):
-		did = docs_batch[d]
-		nobsR = st_ix_doc_R[did + 1] - st_ix_doc_R[did]
-		nobsW = st_ix_doc_W[did + 1] - st_ix_doc_W[did]
-		st_ix_theta = did * K
-
-		if nobsW >= nobsR:
-			for i in range(nobsR):
-				st_ix_y = (i + st_ix_doc_R[did]) * K
-				st_ix_z = (i + st_ix_doc_W[did]) * K
-				for k in range(K):
-					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k] + Ya[st_ix_y + k]
-			for j in range(nobsW - nobsR):
-				st_ix_z = (j + nobsR + st_ix_doc_W[did]) * K
-				for k in range(K):
-					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
-		else:
-			for i in range(nobsW):
-				st_ix_y = (i + st_ix_doc_R[did]) * K
-				st_ix_z = (i + st_ix_doc_W[did]) * K
-				for k in range(K):
-					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k] + Ya[st_ix_y + k]
-			for j in range(nobsR - nobsW):
-				st_ix_y = (j + nobsW + st_ix_doc_R[did]) * K
-				for k in range(K):
-					Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k]
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, int* ix_d,
-								int nW, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_theta, st_ix_z
+cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, size_t* ix_d,
+								size_t nW, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_theta, st_ix_z
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_theta = ix_d[i] * K
 		st_ix_z = i * K
@@ -785,9 +717,9 @@ cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, int* ix_d,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Beta_shp(float* Beta_shp, float* Z, int* ix_v, int nW, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_beta, st_ix_Z
+cdef void update_Beta_shp(float* Beta_shp, float* Z, size_t* ix_v, size_t nW, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_beta, st_ix_Z
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_Z = i * K
 		st_ix_beta = ix_v[i] * K
@@ -798,28 +730,10 @@ cdef void update_Beta_shp(float* Beta_shp, float* Z, int* ix_v, int nW, int K, i
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Beta_shp_csr(float* Beta_shp, float* Z, int* ix_v,int* st_ix_doc, int* docs_batch,
-							  int ndocs, int K, int nthreads) nogil:
-	cdef int d, nobs, did, i, k
-	cdef int st_ix_beta, st_ix_Z
-
-	for d in prange(ndocs, schedule='dynamic', num_threads=nthreads):
-		did = docs_batch[d]
-		nobs = st_ix_doc[did + 1] - st_ix_doc[did]
-		for i in range(nobs):
-			st_ix_Z = (i + st_ix_doc[did]) * K
-			st_ix_beta = ix_v[i + st_ix_doc[did]] * K
-			for k in range(K):
-				Beta_shp[st_ix_beta + k] += Z[st_ix_Z + k]
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
 cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
-						 int* ix_u, int nR, int K, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_y, st_ix_eta
+						 size_t* ix_u, size_t nR, size_t K, int nthreads) nogil:
+	cdef size_t i, k
+	cdef size_t st_ix_y, st_ix_eta
 	for i in prange(nR, schedule='static', num_threads=nthreads):
 		st_ix_eta = ix_u[i] * K
 		st_ix_y = i * K
@@ -830,27 +744,10 @@ cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Eta_shp_csr(float* Eta_shp, float* Ya, float* Yb, int* ix_u, int* st_ix_doc,
-							 int* docs_batch, int ndocs, int K, int nthreads) nogil:
-	cdef int d, did, nobs, i, k
-	cdef int st_ix_y, st_ix_eta
-	for d in prange(ndocs, schedule='dynamic', num_threads=nthreads):
-		did = docs_batch[d]
-		nobs = st_ix_doc[did + 1] - st_ix_doc[did]
-		for i in range(nobs):
-			st_ix_eta = ix_u[i + st_ix_doc[did]] * K
-			st_ix_y = (i + st_ix_doc[did]) * K
-			for k in range(K):
-				Eta_shp[st_ix_eta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Eps_shp(float* Eps_shp, float* Yb, int* ix_d, int nR, int K,
+cdef void update_Eps_shp(float* Eps_shp, float* Yb, size_t* ix_d, size_t nR, size_t K,
 						 int allow_inconsistent, int nthreads) nogil:
-	cdef int i, k
-	cdef int st_ix_eps, st_ix_y
+	cdef size_t i, k
+	cdef size_t st_ix_eps, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nR, schedule='static', num_threads=nthreads):
 			st_ix_eps = ix_d[i] * K
@@ -864,45 +761,29 @@ cdef void update_Eps_shp(float* Eps_shp, float* Yb, int* ix_d, int nR, int K,
 			for k in range(K):
 				Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Eps_shp_csr(float* Eps_shp, float* Yb, int* st_ix_doc,
-							 int* docs_batch, int ndocs, int K, int nthreads) nogil:
-	cdef int d, did, nobs, i, k
-	cdef int st_ix_eps, st_ix_y
-	for d in prange(ndocs, schedule='dynamic', num_threads=nthreads):
-		did = docs_batch[d]
-		nobs = st_ix_doc[did + 1] - st_ix_doc[did]
-		st_ix_eps = did * K
-		for i in range(nobs):
-			st_ix_y = (i + st_ix_doc[did]) * K
-			for k in range(K):
-				Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
-
 ## this function was copy-pasted from hpfrec, thus the variable names
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void llk_plus_rmse(float* T, float* B, float* Y,
-						int* ix_u, int* ix_i, int nY, int k,
+						size_t* ix_u, size_t* ix_i, size_t nY, size_t kszt,
 						long double* out, int nthreads, int add_mse, int full_llk) nogil:
-	cdef int i
+	cdef size_t i
 	cdef int one = 1
 	cdef float yhat
 	cdef long double out1 = 0
 	cdef long double out2 =  0
+	cdef int k = <int> kszt
 	if add_mse:
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = sdot(&k, &T[ix_u[i] * k], &one, &B[ix_i[i] * k], &one)
+				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
 				out1 += Y[i]*log(yhat) - log(gamma(Y[i] + 1))
 				out2 += (Y[i] - yhat)**2
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = sdot(&k, &T[ix_u[i] * k], &one, &B[ix_i[i] * k], &one)
+				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
 				out1 += Y[i]*log(yhat)
 				out2 += (Y[i] - yhat)**2
 		out[0] = out1
@@ -910,11 +791,11 @@ cdef void llk_plus_rmse(float* T, float* B, float* Y,
 	else:
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * k], &one, &B[ix_i[i] * k], &one)) - log(gamma(Y[i] + 1))
+				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - log(gamma(Y[i] + 1))
 			out[0] = out1
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * k], &one, &B[ix_i[i] * k], &one))
+				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
 			out[0] = out1
 	### Comment: adding += directly to *out triggers compiler optimizations that produce
 	### different (and wrong) results across different runs.

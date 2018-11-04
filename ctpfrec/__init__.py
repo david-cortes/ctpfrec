@@ -690,8 +690,8 @@ class CTPF:
 
 	def _cast_df(self, df, ttl):
 		col1, col2, subj = self._cols_from_ttl(ttl)
-		df[col1] = df[col1].values.astype(ctypes.c_int)
-		df[col2] = df[col2].values.astype(ctypes.c_int)
+		df[col1] = df[col1].values.astype(ctypes.c_size_t)
+		df[col2] = df[col2].values.astype(ctypes.c_size_t)
 		df['Count'] = df.Count.astype('float32')
 		return df
 
@@ -1060,12 +1060,12 @@ class CTPF:
 			HPF._process_valset(self, val_set)
 		else:
 			self.val_set = pd.DataFrame({
-				'UserId': np.empty(0, dtype=ctypes.c_int),
-				'ItemId': np.empty(0, dtype=ctypes.c_int),
+				'UserId': np.empty(0, dtype=ctypes.c_size_t),
+				'ItemId': np.empty(0, dtype=ctypes.c_size_t),
 				'Count': np.empty(0, dtype='float32')})
 		if not self._has_user_df:
-			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_int),
-				'AttributeId':np.empty(0, dtype=ctypes.c_int),
+			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_size_t),
+				'AttributeId':np.empty(0, dtype=ctypes.c_size_t),
 				'Count':np.empty(0, dtype='float32')})
 		if self.verbose:
 			print("Initializing parameters...")
@@ -1077,8 +1077,8 @@ class CTPF:
 			if self._has_user_df:
 				self._filter_user_df()
 			else:
-				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_int),
-											  'AttributeId':np.empty(0, dtype=ctypes.c_int),
+				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_size_t),
+											  'AttributeId':np.empty(0, dtype=ctypes.c_size_t),
 											  'Count':np.empty(0, dtype='float32')})
 
 		## fitting the model
@@ -1088,7 +1088,7 @@ class CTPF:
 			self.Omega_shp, self.Omega_rte, self.Kappa_shp, self.Kappa_rte,
 			self.Theta, self.Eta, self.Epsilon, self.Omega,
 			self._user_df, self._has_user_df,
-			self._counts_df, self._words_df, cython_loops.cast_int(self.k), self.step_size,
+			self._counts_df, self._words_df, cython_loops.cast_size_t(self.k), self.step_size,
 			cython_loops.cast_int(self.step_size is not None), cython_loops.cast_int(self.sum_exp_trick),
 			cython_loops.cast_float(self.a), cython_loops.cast_float(self.b), cython_loops.cast_float(self.c),
 			cython_loops.cast_float(self.d), cython_loops.cast_float(self.e), cython_loops.cast_float(self.f),
@@ -1124,9 +1124,9 @@ class CTPF:
 		if items_pool is None:
 			allpreds = - (user_vec.dot(self._M2.T))
 			if exclude_seen:
-				n_ext = np.min([n + self._n_seen_by_user[user], self._M2.shape[0]])
+				n_ext = int(np.min([n + self._n_seen_by_user[user], self._M2.shape[0]]))
 				rec = np.argpartition(allpreds, n_ext-1)[:n_ext]
-				seen = self.seen[self._st_ix_user[user] : self._st_ix_user[user] + self._n_seen_by_user[user]]
+				seen = self.seen[int(self._st_ix_user[user]) : int(self._st_ix_user[user] + self._n_seen_by_user[user])]
 				rec = np.setdiff1d(rec, seen)
 				rec = rec[np.argsort(allpreds[rec])[:n]]
 				if self.reindex:
@@ -1442,7 +1442,7 @@ class CTPF:
 			raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 		new_Theta_shp, temp = cy.calc_item_factors(
-					words_df, new_max_id, maxiter, self.k, stop_thr, random_seed, ncores,
+					words_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k), stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
 					self.Theta_rte, self.Beta_shp, self.Beta_rte
@@ -1536,7 +1536,7 @@ class CTPF:
 		user_df.rename(columns={'UserId':'ItemId', 'AttributeId':'WordId'}, inplace=True)
 
 		new_Omega_shp, temp = cy.calc_item_factors(
-					user_df, new_max_id, maxiter, cython_loops.cast_int(self.k),
+					user_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
@@ -1641,9 +1641,9 @@ class CTPF:
 		new_Theta = new_Theta_shp / self.Theta_rte
 		self.Theta_shp = np.r_[self.Theta_shp, new_Theta]
 		self.Theta = np.r_[self.Theta, new_Theta_shp]
-		self.Epsilon = np.r_[self.Epsilon, np.zeros((new_max_id, self.k), dtype='float32')]
-		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((new_max_id, self.k), dtype='float32')]
-		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((new_max_id, self.k), dtype='float32')]
+		self.Epsilon = np.r_[self.Epsilon, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
+		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
+		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
 		self._M2 = np.r_[self._M2, new_Theta]
 
 
@@ -1651,8 +1651,8 @@ class CTPF:
 		if self.reindex:
 			self.item_mapping_ = new_item_mapping
 			if self.produce_dicts:
-				for i in range(new_item_mapping.shape[0] - self.nitems):
-					self.item_dict_[new_item_mapping[i + self.nitems]] = i + self.nitems
+				for i in range(int(new_item_mapping.shape[0]) - int(self.nitems)):
+					self.item_dict_[int(new_item_mapping[i + int(self.nitems)])] = i + int(self.nitems)
 			self.nitems = self.item_mapping_.shape[0]
 		else:
 			self.nitems += new_max_id
@@ -1730,7 +1730,7 @@ class CTPF:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 			new_Omega_shp, new_Eta_shp = cy.calc_user_factors_full(
-					counts_df, user_df, new_max_id, cython_loops.cast_int(maxiter), cython_loops.cast_int(self.k),
+					counts_df, user_df, new_max_id, cython_loops.cast_int(maxiter), cython_loops.cast_size_t(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.e),
 					self.Omega_rte, self.Eta_rte,
@@ -1758,7 +1758,7 @@ class CTPF:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 			new_Eta_shp = cy.calc_user_factors(
-					counts_df, new_max_id, maxiter, cython_loops.cast_int(self.k),
+					counts_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.e), self.Eta_rte,
 					self.Theta_shp, self.Theta_rte, self.Epsilon_shp, self.Epsilon_rte
