@@ -3,6 +3,7 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
 import numpy
+import platform
 
 ## Note: As of the end of 2018, MSVC is still stuck with OpenMP 2.0 (released 2002), which does not support
 ## parallel for loops with unsigend iterators. If you are using a different compiler, this part can be safely removed

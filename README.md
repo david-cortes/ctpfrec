@@ -71,8 +71,6 @@ Package is available on PyPI, can be installed with
 
 ```pip install ctpfrec```
 
-**Note: current version will not compile under Visual Studio in Windows, but older versions will still work fine, e.g.** `pip install ctpfrec==0.1.3.1`.
-
 As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio installation (or MinGW + GCC), otherwise the installation from `pip` might fail. For more details see this guide:
 [Cython Extensions On Windows](https://github.com/cython/cython/wiki/CythonExtensionsOnWindows)
 

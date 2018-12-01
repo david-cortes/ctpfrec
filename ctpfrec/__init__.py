@@ -1367,12 +1367,12 @@ class CTPF:
 		else:
 			nan_entries = (user == -1) | (item == -1)
 			if nan_entries.sum() == 0:
-				return (self._M1[user] * self._M2[item]).sum(axis=1)
+				return cython_loops.predict_arr(self._M1, self._M2, user, item, self.ncores)
 			else:
 				non_na_user = user[~nan_entries]
 				non_na_item = item[~nan_entries]
 				out = np.empty(user.shape[0], dtype=self._M1.dtype)
-				out[~nan_entries] = (self._M1[non_na_user] * self._M2[non_na_item]).sum(axis=1)
+				out[~nan_entries] = cython_loops.predict_arr(self._M1, self._M2, non_na_user.astype(ctypes.c_size_t), non_na_item.astype(ctypes.c_size_t), self.ncores)
 				out[nan_entries] = np.nan
 				return out
 
