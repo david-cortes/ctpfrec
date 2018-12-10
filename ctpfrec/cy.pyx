@@ -9,6 +9,15 @@ import ctypes
 from hpfrec import cython_loops
 import time
 
+## Note: As of the end of 2018, MSVC is still stuck with OpenMP 2.0 (released 2002), which does not support
+## parallel for loops with unsigend iterators. If you are using a different compiler, this part can be safely removed
+IF UNAME_SYSNAME == "Windows":
+	obj_ind_type = ctypes.c_long
+	ctypedef long ind_type
+ELSE:
+	obj_ind_type = ctypes.c_size_t
+	ctypedef size_t ind_type
+
 ### Main function
 #################
 def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
@@ -20,7 +29,7 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			 np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Eta,
 			 np.ndarray[float, ndim=2] Eps, np.ndarray[float, ndim=2] Omega,
 			 user_df, has_user_df,
-			 df, W, size_t k, step_size, has_step_size, int sum_exp_trick,
+			 df, W, ind_type k, step_size, has_step_size, int sum_exp_trick,
 			 float a, float b, float c, float d, float e, float f, float g, float h,
 			 int nthreads, int maxiter, int miniter, int check_every,
 			 stop_crit, stop_thr, verbose, save_folder,
@@ -29,26 +38,26 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			 ):
 	# TODO: implement stochastic variational inference taking CSR data and small Z-X-Y matrices (take from hpfrec)
 	# TODO: for the SVI model with user and item info, alternate between epochs of users and items
-	cdef size_t nR = df.shape[0]
-	cdef size_t nW = W.shape[0]
-	cdef size_t nusers = Eta_shp.shape[0]
-	cdef size_t nitems = Theta_shp.shape[0]
-	cdef size_t nwords = Beta_shp.shape[0]
+	cdef ind_type nR = df.shape[0]
+	cdef ind_type nW = W.shape[0]
+	cdef ind_type nusers = Eta_shp.shape[0]
+	cdef ind_type nitems = Theta_shp.shape[0]
+	cdef ind_type nwords = Beta_shp.shape[0]
 	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_d_w = W.ItemId.values
-	cdef np.ndarray[size_t, ndim=1] ix_v_w = W.WordId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_d_w = W.ItemId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_v_w = W.WordId.values
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[size_t, ndim=1] ix_d_r = df.ItemId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_d_r = df.ItemId.values
 
 	cdef np.ndarray[float, ndim=1] Rval = val_df.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_u_val = val_df.UserId.values
-	cdef np.ndarray[size_t, ndim=1] ix_d_val = val_df.ItemId.values
-	cdef size_t nRv = val_df.shape[0]
+	cdef np.ndarray[ind_type, ndim=1] ix_u_val = val_df.UserId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_d_val = val_df.ItemId.values
+	cdef ind_type nRv = val_df.shape[0]
 
 	cdef np.ndarray[float, ndim=1] Qarr
-	cdef np.ndarray[size_t, ndim=1] ix_u_q, ix_a_q
-	cdef size_t nQ, nattr
+	cdef np.ndarray[ind_type, ndim=1] ix_u_q, ix_a_q
+	cdef ind_type nQ, nattr
 	if has_user_df:
 		Qarr = user_df.Count.values
 		ix_u_q = user_df.UserId.values
@@ -272,10 +281,10 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 					   np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Theta_prev,
 					   np.ndarray[float, ndim=2] Eta, np.ndarray[float, ndim=2] Eps,
-					   size_t nY,
-					   np.ndarray[float, ndim=1] Y, np.ndarray[size_t, ndim=1] ix_u, np.ndarray[size_t, ndim=1] ix_i, size_t nYv,
-					   np.ndarray[float, ndim=1] Yval, np.ndarray[size_t, ndim=1] ix_u_val, np.ndarray[size_t, ndim=1] ix_i_val,
-					   np.ndarray[long double, ndim=1] errs, size_t k, int nthreads, int verbose, int full_llk, has_valset):
+					   ind_type nY,
+					   np.ndarray[float, ndim=1] Y, np.ndarray[ind_type, ndim=1] ix_u, np.ndarray[ind_type, ndim=1] ix_i, ind_type nYv,
+					   np.ndarray[float, ndim=1] Yval, np.ndarray[ind_type, ndim=1] ix_u_val, np.ndarray[ind_type, ndim=1] ix_i_val,
+					   np.ndarray[long double, ndim=1] errs, ind_type k, int nthreads, int verbose, int full_llk, has_valset):
 
 	cdef np.ndarray[float, ndim=2] M2
 
@@ -318,14 +327,14 @@ def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 
 ### Functions for updating without refitting
 ############################################
-def calc_item_factors(W, size_t nitems, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
+def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
 					  float a, float b, float c, float d,
 					  np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Beta_shp, np.ndarray[float, ndim=2] Beta_rte):
 	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_i_w = W.ItemId.values
-	cdef np.ndarray[size_t, ndim=1] ix_v_w = W.WordId.values
-	cdef size_t nW = W.shape[0]
+	cdef np.ndarray[ind_type, ndim=1] ix_i_w = W.ItemId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_v_w = W.WordId.values
+	cdef ind_type nW = W.shape[0]
 
 	if random_seed is not None:
 		np.random.seed(random_seed)
@@ -351,14 +360,14 @@ def calc_item_factors(W, size_t nitems, int maxiter, size_t k, stop_thr, random_
 
 	return Theta_shp, Z
 
-def calc_user_factors(df, size_t nusers, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
+def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
 					  float e, np.ndarray[float, ndim=2] Eta_rte,
 					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte):
-	cdef size_t nR = df.shape[0]
+	cdef ind_type nR = df.shape[0]
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[size_t, ndim=1] ix_i_r = df.ItemId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
 	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype='float32')
@@ -391,15 +400,15 @@ def calc_user_factors(df, size_t nusers, int maxiter, size_t k, stop_thr, random
 
 	return Eta_shp
 
-def calc_user_factors_full(df, user_df, size_t nusers, int maxiter, size_t k, stop_thr, random_seed, int nthreads,
+def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
 					  float c, float e, np.ndarray[float, ndim=2] Omega_rte, np.ndarray[float, ndim=2] Eta_rte,
 					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
 					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte,
 					  np.ndarray[float, ndim=2] Kappa_shp, np.ndarray[float, ndim=2] Kappa_rte):
-	cdef size_t nR = df.shape[0]
+	cdef ind_type nR = df.shape[0]
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_u_r = df.UserId.values
-	cdef np.ndarray[size_t, ndim=1] ix_i_r = df.ItemId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
 
 	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
@@ -410,10 +419,10 @@ def calc_user_factors_full(df, user_df, size_t nusers, int maxiter, size_t k, st
 	cdef np.ndarray[float, ndim=2] Yd = np.empty((nR, k), dtype='float32')
 	cdef np.ndarray[float, ndim=2] Yd_const = np.empty((nR, k), dtype='float32')
 
-	cdef size_t nQ = user_df.shape[0]
+	cdef ind_type nQ = user_df.shape[0]
 	cdef np.ndarray[float, ndim=1] Qarr = user_df.Count.values
-	cdef np.ndarray[size_t, ndim=1] ix_u_q = user_df.UserId.values
-	cdef np.ndarray[size_t, ndim=1] ix_a_q = user_df.AttributeId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_u_q = user_df.UserId.values
+	cdef np.ndarray[ind_type, ndim=1] ix_a_q = user_df.AttributeId.values
 	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype='float32')
 
 	if random_seed is not None:
@@ -467,10 +476,10 @@ def calc_user_factors_full(df, user_df, size_t nusers, int maxiter, size_t k, st
 @cython.cdivision(True)
 cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 					 float* Beta_shp, float* Beta_rte, float* W,
-					 size_t* ix_d, size_t* ix_v, int sum_exp_trick,
-					 size_t nW, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_z, st_ix_theta, st_ix_beta
+					 ind_type* ix_d, ind_type* ix_v, int sum_exp_trick,
+					 ind_type nW, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_z, st_ix_theta, st_ix_beta
 	cdef float sumrow, maxval
 
 	if sum_exp_trick:
@@ -508,9 +517,9 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float* Beta_rte,
-							  size_t* ix_d, size_t* ix_v, size_t nW, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_z, st_ix_beta
+							  ind_type* ix_d, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_z, st_ix_beta
 
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_z = i * K
@@ -522,10 +531,10 @@ cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp, size_t* ix_d,
-							size_t nW, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_z, st_ix_theta
+cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp, ind_type* ix_d,
+							ind_type nW, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_z, st_ix_theta
 	cdef float sumrow, maxval
 
 	for i in prange(nW, schedule='static', num_threads=nthreads):
@@ -548,10 +557,10 @@ cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* Theta_shp, float* Theta_rte,
-				   float* Eps_shp, float* Eps_rte, float* R, size_t* ix_u_r, size_t* ix_d_r, int sum_exp_trick,
-				   size_t nR, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_y, st_ix_u, st_ix_d, ix_2
+				   float* Eps_shp, float* Eps_rte, float* R, ind_type* ix_u_r, ind_type* ix_d_r, int sum_exp_trick,
+				   ind_type nR, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef float E_eta, sumrow, maxval
 
 	if sum_exp_trick:
@@ -602,10 +611,10 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 @cython.cdivision(True)
 cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 					   float* Theta_shp, float* Theta_rte, float* Eps_shp, float* Eps_rte,
-					   float* R, size_t* ix_u_r, size_t* docs_batch, size_t* st_ix_doc,
-					   size_t ndocs, size_t K, int nthreads) nogil:
-	cdef size_t d, did, nobs, i, k
-	cdef size_t st_ix_y, st_ix_u, st_ix_d, ix_2
+					   float* R, ind_type* ix_u_r, ind_type* docs_batch, ind_type* st_ix_doc,
+					   ind_type ndocs, ind_type K, int nthreads) nogil:
+	cdef ind_type d, did, nobs, i, k
+	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef float E_eta, sumrow, maxval
 
 	## comment: using schedule='dynamic' results in NA values
@@ -640,10 +649,10 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
-						   size_t* ix_d_w, size_t* ix_d_r, size_t nW, size_t nR, size_t K,
+						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
 						   int allow_inconsistent, int nthreads) nogil:
-	cdef size_t i, j, k
-	cdef size_t st_ix_theta, st_ix_z, st_ix_y
+	cdef ind_type i, j, k
+	cdef ind_type st_ix_theta, st_ix_z, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
 			st_ix_theta = ix_d_w[i] * K
@@ -672,10 +681,10 @@ cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Yb,
-						   size_t* ix_d_w, size_t* ix_d_r, size_t nW, size_t nR, size_t K,
+						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
 						   int allow_inconsistent, int nthreads) nogil:
-	cdef size_t i, j, k
-	cdef size_t st_ix_theta, st_ix_z, st_ix_y
+	cdef ind_type i, j, k
+	cdef ind_type st_ix_theta, st_ix_z, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
 			st_ix_theta = ix_d_w[i] * K
@@ -703,10 +712,10 @@ cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Y
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, size_t* ix_d,
-								size_t nW, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_theta, st_ix_z
+cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, ind_type* ix_d,
+								ind_type nW, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_theta, st_ix_z
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_theta = ix_d[i] * K
 		st_ix_z = i * K
@@ -717,9 +726,9 @@ cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, size_t* ix_d,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Beta_shp(float* Beta_shp, float* Z, size_t* ix_v, size_t nW, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_beta, st_ix_Z
+cdef void update_Beta_shp(float* Beta_shp, float* Z, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_beta, st_ix_Z
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_Z = i * K
 		st_ix_beta = ix_v[i] * K
@@ -731,9 +740,9 @@ cdef void update_Beta_shp(float* Beta_shp, float* Z, size_t* ix_v, size_t nW, si
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
-						 size_t* ix_u, size_t nR, size_t K, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_y, st_ix_eta
+						 ind_type* ix_u, ind_type nR, ind_type K, int nthreads) nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_y, st_ix_eta
 	for i in prange(nR, schedule='static', num_threads=nthreads):
 		st_ix_eta = ix_u[i] * K
 		st_ix_y = i * K
@@ -744,10 +753,10 @@ cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Eps_shp(float* Eps_shp, float* Yb, size_t* ix_d, size_t nR, size_t K,
+cdef void update_Eps_shp(float* Eps_shp, float* Yb, ind_type* ix_d, ind_type nR, ind_type K,
 						 int allow_inconsistent, int nthreads) nogil:
-	cdef size_t i, k
-	cdef size_t st_ix_eps, st_ix_y
+	cdef ind_type i, k
+	cdef ind_type st_ix_eps, st_ix_y
 	if allow_inconsistent:
 		for i in prange(nR, schedule='static', num_threads=nthreads):
 			st_ix_eps = ix_d[i] * K
@@ -767,9 +776,9 @@ cdef void update_Eps_shp(float* Eps_shp, float* Yb, size_t* ix_d, size_t nR, siz
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void llk_plus_rmse(float* T, float* B, float* Y,
-						size_t* ix_u, size_t* ix_i, size_t nY, size_t kszt,
+						ind_type* ix_u, ind_type* ix_i, ind_type nY, ind_type kszt,
 						long double* out, int nthreads, int add_mse, int full_llk) nogil:
-	cdef size_t i
+	cdef ind_type i
 	cdef int one = 1
 	cdef float yhat
 	cdef long double out1 = 0

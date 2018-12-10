@@ -690,8 +690,8 @@ class CTPF:
 
 	def _cast_df(self, df, ttl):
 		col1, col2, subj = self._cols_from_ttl(ttl)
-		df[col1] = df[col1].values.astype(ctypes.c_size_t)
-		df[col2] = df[col2].values.astype(ctypes.c_size_t)
+		df[col1] = df[col1].values.astype(cy.obj_ind_type)
+		df[col2] = df[col2].values.astype(cy.obj_ind_type)
 		df['Count'] = df.Count.astype('float32')
 		return df
 
@@ -1060,12 +1060,12 @@ class CTPF:
 			HPF._process_valset(self, val_set)
 		else:
 			self.val_set = pd.DataFrame({
-				'UserId': np.empty(0, dtype=ctypes.c_size_t),
-				'ItemId': np.empty(0, dtype=ctypes.c_size_t),
+				'UserId': np.empty(0, dtype=cy.obj_ind_type),
+				'ItemId': np.empty(0, dtype=cy.obj_ind_type),
 				'Count': np.empty(0, dtype='float32')})
 		if not self._has_user_df:
-			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_size_t),
-				'AttributeId':np.empty(0, dtype=ctypes.c_size_t),
+			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
+				'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
 				'Count':np.empty(0, dtype='float32')})
 		if self.verbose:
 			print("Initializing parameters...")
@@ -1077,8 +1077,8 @@ class CTPF:
 			if self._has_user_df:
 				self._filter_user_df()
 			else:
-				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=ctypes.c_size_t),
-											  'AttributeId':np.empty(0, dtype=ctypes.c_size_t),
+				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
+											  'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
 											  'Count':np.empty(0, dtype='float32')})
 
 		## fitting the model
@@ -1088,7 +1088,7 @@ class CTPF:
 			self.Omega_shp, self.Omega_rte, self.Kappa_shp, self.Kappa_rte,
 			self.Theta, self.Eta, self.Epsilon, self.Omega,
 			self._user_df, self._has_user_df,
-			self._counts_df, self._words_df, cython_loops.cast_size_t(self.k), self.step_size,
+			self._counts_df, self._words_df, cython_loops.cast_ind_type(self.k), self.step_size,
 			cython_loops.cast_int(self.step_size is not None), cython_loops.cast_int(self.sum_exp_trick),
 			cython_loops.cast_float(self.a), cython_loops.cast_float(self.b), cython_loops.cast_float(self.c),
 			cython_loops.cast_float(self.d), cython_loops.cast_float(self.e), cython_loops.cast_float(self.f),
@@ -1372,7 +1372,7 @@ class CTPF:
 				non_na_user = user[~nan_entries]
 				non_na_item = item[~nan_entries]
 				out = np.empty(user.shape[0], dtype=self._M1.dtype)
-				out[~nan_entries] = cython_loops.predict_arr(self._M1, self._M2, non_na_user.astype(ctypes.c_size_t), non_na_item.astype(ctypes.c_size_t), self.ncores)
+				out[~nan_entries] = cython_loops.predict_arr(self._M1, self._M2, non_na_user.astype(cy.obj_ind_type), non_na_item.astype(cy.obj_ind_type), self.ncores)
 				out[nan_entries] = np.nan
 				return out
 
@@ -1442,7 +1442,7 @@ class CTPF:
 			raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 		new_Theta_shp, temp = cy.calc_item_factors(
-					words_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k), stop_thr, random_seed, ncores,
+					words_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k), stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
 					self.Theta_rte, self.Beta_shp, self.Beta_rte
@@ -1536,7 +1536,7 @@ class CTPF:
 		user_df.rename(columns={'UserId':'ItemId', 'AttributeId':'WordId'}, inplace=True)
 
 		new_Omega_shp, temp = cy.calc_item_factors(
-					user_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k),
+					user_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
@@ -1730,7 +1730,7 @@ class CTPF:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 			new_Omega_shp, new_Eta_shp = cy.calc_user_factors_full(
-					counts_df, user_df, new_max_id, cython_loops.cast_int(maxiter), cython_loops.cast_size_t(self.k),
+					counts_df, user_df, new_max_id, cython_loops.cast_int(maxiter), cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.c), cython_loops.cast_float(self.e),
 					self.Omega_rte, self.Eta_rte,
@@ -1758,7 +1758,7 @@ class CTPF:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
 			new_Eta_shp = cy.calc_user_factors(
-					counts_df, new_max_id, maxiter, cython_loops.cast_size_t(self.k),
+					counts_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
 					cython_loops.cast_float(self.e), self.Eta_rte,
 					self.Theta_shp, self.Theta_rte, self.Epsilon_shp, self.Epsilon_rte
