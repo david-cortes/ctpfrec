@@ -156,17 +156,16 @@ The constructor for CTPF allows some parameters to make it run faster (if you kn
 
 ## Saving model with pickle
 
-Using pickle to save a `CTPF` object might fail due to problems with lambda functions. The following solves it:
+Don't use `pickle` to save an `CTPF` object, as it will fail due to problems with lambda functions. Use `dill` instead, which has the same syntax as pickle:
 
 ```python
-import pickle
+import dill
 from ctpfrec import CTPF
 
 c = CTPF()
-c.step_size = None
-pickle.dump(c, open("CTPF_obj.p", "wb"))
+dill.dump(c, open("CTPF_obj.dill", "wb"))
+c = dill.load(open("CTPF_obj.dill", "rb"))
 ```
-(Note however that you won't be able to use 'partial_fit' afterwards)
 
 ## References
 [1] Gopalan, Prem K., Laurent Charlin, and David Blei. "Content-based recommendations with poisson factorization." Advances in Neural Information Processing Systems. 2014.
