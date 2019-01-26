@@ -692,7 +692,7 @@ class CTPF:
 		col1, col2, subj = self._cols_from_ttl(ttl)
 		df[col1] = df[col1].values.astype(cy.obj_ind_type)
 		df[col2] = df[col2].values.astype(cy.obj_ind_type)
-		df['Count'] = df.Count.astype('float32')
+		df['Count'] = df.Count.astype(ctypes.c_float)
 		return df
 
 	def _check_df(self, df, ttl):
@@ -701,17 +701,25 @@ class CTPF:
 		if isinstance(df, np.ndarray):
 			assert len(df.shape) > 1
 			assert df.shape[1] >= 3
-			df = df.values[:,:3]
+			df = pd.DataFrame(df[:, :3])
 			df.columns = [col1, col2, "Count"]
 			
-		if df.__class__.__name__ == 'DataFrame':
+		elif df.__class__.__name__ == 'DataFrame':
 			assert df.shape[0] > 0
 			assert col1 in df.columns.values
 			assert col2 in df.columns.values
 			assert 'Count' in df.columns.values
 			df = df[[col1, col2, 'Count']]
+
+		elif df.__class__.__name__ == 'coo_matrix':
+			df = pd.DataFrame({
+				'UserId' : df.row,
+				'ItemId' : df.col,
+				'Count' : df.data
+				})
+
 		else:
-			raise ValueError("'" + ttl + "' must be a pandas data frame or a numpy array")
+			raise ValueError("'" + ttl + "' must be a pandas data frame, a numpy array, or scipy sparse coo_matrix")
 
 		if self.reindex:
 			df = self._filter_zero_obs(df, ttl=ttl, subj=subj)
@@ -1027,18 +1035,18 @@ class CTPF:
 
 		Parameters
 		----------
-		counts_df : DatFrame or array (n_samples, 3)
+		counts_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
 			User-Item interaction data with one row per non-zero observation, consisting of triplets ('UserId', 'ItemId', 'Count').
 			Must containin columns 'UserId', 'ItemId', and 'Count'.
 			Combinations of users and items not present are implicitly assumed to be zero by the model.
-		words_df : DatFrame or array (n_samples, 3)
+		words_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
 			Bag-of-word representation of items with one row per present unique word, consisting of triplets ('ItemId', 'WordId', 'Count').
 			Must contain columns 'ItemId', 'WordId', and 'Count'.
 			Combinations of items and words not present are implicitly assumed to be zero.
-		val_set : DatFrame or array (n_samples, 3)
-			Validation set on which to monitor log-likelihood. Same format as counts_df.
-		user_df : DatFrame or array (n_samples, 3)
+		user_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
 			User attributes, same format as 'words_df'. Must contain columns 'UserId', 'AttributeId', 'Count'.
+		val_set : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
+			Validation set on which to monitor log-likelihood. Same format as counts_df.
 
 		Returns
 		-------
