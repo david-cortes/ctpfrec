@@ -71,14 +71,14 @@ Package is available on PyPI, can be installed with
 
 ```pip install ctpfrec```
 
-As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio installation (or MinGW + GCC), otherwise the installation from `pip` might fail. For more details see this guide:
+As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio Build Tools installation with MSVC140 (or MinGW + GCC), otherwise the installation from `pip` might fail. For more details see this guide:
 [Cython Extensions On Windows](https://github.com/cython/cython/wiki/CythonExtensionsOnWindows)
 
-On Python 2.7 on Windows, it might additionally require installing extra Visual Basic modules (untested).
+On Linux, the `pip` install should work out-of-the-box, as long as the system has `gcc`.
 
-On Linux and Mac, the `pip` install should work out-of-the-box, as long as the system has `gcc`.
+On Mac, installing this package will first require setting up OpenMP for `clang` compiler (does not come by default in apple's redistributions), or installing `gcc`.
 
-The package has only been tested under Python 3.6.
+The package has only been tested under Python 3.6 and **some functionalities will not work on Python 2.7**.
 
 ## Sample usage
 
