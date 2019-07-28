@@ -70,20 +70,20 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 	if stop_crit == 'diff-norm':
 		Theta_prev = Theta.copy()
 	else:
-		Theta_prev = np.empty((0,0), dtype='float32')
+		Theta_prev = np.empty((0,0), dtype=ctypes.c_float)
 	cdef long double last_crit = - (10**37)
 	cdef np.ndarray[long double, ndim=1] errs = np.zeros(2, dtype=ctypes.c_longdouble)
 
 	if verbose>0:
 		print "Allocating intermediate matrices..."
-	cdef np.ndarray[float, ndim=2] Z = np.empty((nW, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype='float32')
+	cdef np.ndarray[float, ndim=2] Z  = np.empty((nW, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Yc, Yd, X
 	if has_user_df:
-		Yc = np.empty((nR, k), dtype='float32')
-		Yd = np.empty((nR, k), dtype='float32')
-		X = np.empty((nQ, k), dtype='float32')
+		Yc = np.empty((nR, k), dtype=ctypes.c_float)
+		Yd = np.empty((nR, k), dtype=ctypes.c_float)
+		X  = np.empty((nQ, k), dtype=ctypes.c_float)
 
 	if verbose>0:
 		print "Initializing optimization procedure..."
@@ -116,8 +116,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			else:
 				Theta_rte[:,:] = d + (Beta_shp/Beta_rte).sum(axis=0, keepdims=True) + Eta.sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Theta_shp and Theta_rte get wrong results, but can be somehow fixed by adding this:
-			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype='float32')
-			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype='float32')
+			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=ctypes.c_float)
+			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=ctypes.c_float)
 			Theta[:,:] = Theta_shp / Theta_rte
 
 			## update beta
@@ -179,8 +179,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			else:
 				Theta_rte[:,:] = d + (Beta_shp/Beta_rte).sum(axis=0, keepdims=True) + (Omega + Eta).sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Theta_shp and Theta_rte get wrong results, but can be somehow fixed by adding this:
-			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype='float32')
-			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype='float32')
+			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=ctypes.c_float)
+			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=ctypes.c_float)
 			Theta[:,:] = Theta_shp / Theta_rte
 
 			## Beta_shp := a + sum_i(Z)
@@ -202,8 +202,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 						     &ix_u_q[0], &ix_u_r[0], nQ, nR, k, allow_inconsistent, nthreads)
 			Omega_rte[:,:] = d + (Kappa_shp/Kappa_rte).sum(axis=0, keepdims=True) + (Theta + Eps).sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Omega_shp and Omega_rte get wrong results, but can be somehow fixed by adding this:
-			Omega_shp = Omega_shp + np.zeros((Omega_shp.shape[0], Omega_shp.shape[1]), dtype='float32')
-			Omega_rte = Omega_rte + np.zeros((Omega_rte.shape[0], Omega_rte.shape[1]), dtype='float32')
+			Omega_shp = Omega_shp + np.zeros((Omega_shp.shape[0], Omega_shp.shape[1]), dtype=ctypes.c_float)
+			Omega_rte = Omega_rte + np.zeros((Omega_rte.shape[0], Omega_rte.shape[1]), dtype=ctypes.c_float)
 			Omega[:,:] = Omega_shp / Omega_rte
 
 			## Kappa_shp := a + sum_u(X)
@@ -339,10 +339,10 @@ def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, ran
 	if random_seed is not None:
 		np.random.seed(random_seed)
 
-	cdef np.ndarray[float, ndim=2] Theta_shp = (a * 2*np.random.beta(20, 20, size=(nitems, k))).astype('float32')
+	cdef np.ndarray[float, ndim=2] Theta_shp = (a * 2*np.random.beta(20, 20, size=(nitems, k))).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Theta_prev = Theta_shp.copy()
-	cdef np.ndarray[float, ndim=2] Z = np.empty((nW, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Zconst = np.empty((nW, k), dtype='float32')
+	cdef np.ndarray[float, ndim=2] Z = np.empty((nW, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Zconst = np.empty((nW, k), dtype=ctypes.c_float)
 	update_Z_const_pred(&Zconst[0,0], &Theta_rte[0,0], &Beta_shp[0,0], &Beta_rte[0,0],
 						&ix_i_w[0], &ix_v_w[0], nW, k, nthreads)
 
@@ -368,14 +368,14 @@ def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, ra
 	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype='float32')
+	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype=ctypes.c_float)
 
 	if random_seed is not None:
 		np.random.seed(random_seed)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype('float32')
+	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
 
 	## reusing the same functions for items with different parameters only
@@ -410,26 +410,26 @@ def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k
 	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
 
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yc = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yc_const = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yd = np.empty((nR, k), dtype='float32')
-	cdef np.ndarray[float, ndim=2] Yd_const = np.empty((nR, k), dtype='float32')
+	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yc = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yc_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yd = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Yd_const = np.empty((nR, k), dtype=ctypes.c_float)
 
 	cdef ind_type nQ = user_df.shape[0]
 	cdef np.ndarray[float, ndim=1] Qarr = user_df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_q = user_df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_a_q = user_df.AttributeId.values
-	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype='float32')
+	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype=ctypes.c_float)
 
 	if random_seed is not None:
 		np.random.seed(random_seed)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype('float32')
+	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
-	cdef np.ndarray[float, ndim=2] Omega_shp = c * 2*np.random.beta(20, 20, size=(nusers, k)).astype('float32')
+	cdef np.ndarray[float, ndim=2] Omega_shp = c * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 
 	## reusing the same functions for items with different parameters only
 	update_Z_const_pred(&Ya_const[0,0], &Omega_rte[0,0], &Theta_shp[0,0], &Theta_rte[0,0],
