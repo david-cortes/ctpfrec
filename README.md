@@ -51,19 +51,6 @@ R_ui ~ Poisson((O + N) * (T + E)')
 
 A huge drawback of this model compared to LDA is that, as the matrices are non-negative, items with more words will have larger values in their factors/topics, which will result in them having higher scores regardless of their popularity. This effect can be somewhat decreased by using only a limited number of words to represent each item (scaling upwards the ones that don't have enough words), by standardizing the bag-of-words to have all rows summing up to a certain number (this is hard to do when the counts are supposed to be integers, but the package can still work mostly fine with decimals that are at least >= 0.9, and has the option to standardize the inputs), or to a lesser extent by standardizing the resulting Theta shape matrix to have its rows sum to 1 (also supported in the package options).
 
-#### Why is it more efficient
-
-In typical settings for recommendations with implicit data, most users ever see/click/play/buy a handful selected items out of all the available catalog, thus a matrix of user-item interactions would be extremely sparse (most entries would be zero). Algorithms like implicit-ALS or BPR (Bayesian personalized ranking) require iterating over some or all of the missing combinations not seen in the data (e.g. songs not played by each user) in order to compute their respective loss functions, which is slow and not very scalable.
-
-However, Poisson likelihood is given by the formula:
-```L(y) = yhat^y * exp(-yhat) / y!```
-
-If taking the logarithm (log-likelihood), then this becomes:
-```l(y) = -log(y!) + y*log(yhat) - yhat```
-
-Since `log(0!) = 0`, `0*log(yhat) = 0`, and the sum of predictions for all combinations of users and items can be quickly calculated by `sum yhat = sum_{i,j} <U_i, V_j> = <sum_i U_i, sum_j V_j>` (since `U` and `V` are non-negative matrices), it means the model doesn't ever need to make calculations on values that are equal to zero in order to determine their Poisson log-likelihood.
-
-Moreover, negative Poisson log-likelihood is a more appropriate loss for count data than squared loss, which tends to produce not-so-good results when the values to predict follow an exponential rather than a normal distribution.
 
 ## Installation
 
