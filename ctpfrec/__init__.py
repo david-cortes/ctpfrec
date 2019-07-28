@@ -948,8 +948,8 @@ class CTPF:
 					print("**********************************")
 					print("")
 			else:
-				self.Kappa_shp = np.empty((0,0), dtype='float32')
-				self.Kappa_rte = np.empty((0,0), dtype='float32')
+				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
+				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
 		else:
 			self.Beta_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
 			self.Theta_shp = (self.c * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
@@ -959,8 +959,8 @@ class CTPF:
 				self.Kappa_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
 				self.Kappa_rte = (self.b * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 			else:
-				self.Kappa_shp = np.empty((0,0), dtype='float32')
-				self.Kappa_rte = np.empty((0,0), dtype='float32')
+				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
+				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
 		
 		self.Eta_shp = (self.e * 2*np.random.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
 		self.Epsilon_shp = (self.g * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
@@ -970,8 +970,8 @@ class CTPF:
 			self.Omega_shp = (self.e * 2*np.random.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
 			self.Omega_rte = (self.f * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 		else:
-			self.Omega_shp = np.empty((0,0), dtype='float32')
-			self.Omega_rte = np.empty((0,0), dtype='float32')
+			self.Omega_shp = np.empty((0,0), dtype=ctypes.c_float)
+			self.Omega_rte = np.empty((0,0), dtype=ctypes.c_float)
 
 		self._divide_parameters(add_beta=False)
 
@@ -1070,11 +1070,11 @@ class CTPF:
 			self.val_set = pd.DataFrame({
 				'UserId': np.empty(0, dtype=cy.obj_ind_type),
 				'ItemId': np.empty(0, dtype=cy.obj_ind_type),
-				'Count': np.empty(0, dtype='float32')})
+				'Count': np.empty(0, dtype=ctypes.c_float)})
 		if not self._has_user_df:
 			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
 				'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
-				'Count':np.empty(0, dtype='float32')})
+				'Count':np.empty(0, dtype=ctypes.c_float)})
 		if self.verbose:
 			print("Initializing parameters...")
 		self._initalize_parameters()
@@ -1087,7 +1087,7 @@ class CTPF:
 			else:
 				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
 											  'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
-											  'Count':np.empty(0, dtype='float32')})
+											  'Count':np.empty(0, dtype=ctypes.c_float)})
 
 		## fitting the model
 		self.niter = cy.fit_ctpf(
@@ -1649,9 +1649,9 @@ class CTPF:
 		new_Theta = new_Theta_shp / self.Theta_rte
 		self.Theta_shp = np.r_[self.Theta_shp, new_Theta]
 		self.Theta = np.r_[self.Theta, new_Theta_shp]
-		self.Epsilon = np.r_[self.Epsilon, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
-		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
-		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((int(new_max_id), int(self.k)), dtype='float32')]
+		self.Epsilon = np.r_[self.Epsilon, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
+		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
+		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
 		self._M2 = np.r_[self._M2, new_Theta]
 
 
@@ -1778,8 +1778,8 @@ class CTPF:
 			self.Eta = np.r_[self.Eta, new_Eta]
 			self._M1 = np.r_[self._M1, new_Eta]
 			if self._has_user_df:
-				self.Omega = np.r_[self.Omega, np.zeros((new_max_id, self.k), dtype='float32')]
-				self.Omega_shp = np.r_[self.Omega_shp, np.zeros((new_max_id, self.k), dtype='float32')]
+				self.Omega = np.r_[self.Omega, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
+				self.Omega_shp = np.r_[self.Omega_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
 
 		## factors based on user attributes
 		else:
@@ -1793,8 +1793,8 @@ class CTPF:
 			new_Omega = new_Omega_shp / self.Omega_rte
 			self.Omega_shp = np.r_[self.Omega_shp, new_Omega_shp]
 			self.Omega = np.r_[self.Omega, new_Omega]
-			self.Eta = np.r_[self.Eta, np.zeros((new_max_id, self.k), dtype='float32')]
-			self.Eta_shp = np.r_[self.Eta_shp, np.zeros((new_max_id, self.k), dtype='float32')]
+			self.Eta = np.r_[self.Eta, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
+			self.Eta_shp = np.r_[self.Eta_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
 			self._M1 = np.r_[self._M1, new_Omega]
 
 		
