@@ -14,9 +14,13 @@ import time
 IF UNAME_SYSNAME == "Windows":
 	obj_ind_type = ctypes.c_long
 	ctypedef long ind_type
+	ctypedef double long_double_type
+	obj_long_double_type = ctypes.c_double
 ELSE:
 	obj_ind_type = ctypes.c_size_t
 	ctypedef size_t ind_type
+	ctypedef long double long_double_type
+	obj_long_double_type = ctypes.c_longdouble
 
 ### Main function
 #################
@@ -71,8 +75,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 		Theta_prev = Theta.copy()
 	else:
 		Theta_prev = np.empty((0,0), dtype=ctypes.c_float)
-	cdef long double last_crit = - (10**37)
-	cdef np.ndarray[long double, ndim=1] errs = np.zeros(2, dtype=ctypes.c_longdouble)
+	cdef long_double_type last_crit = - (10**37)
+	cdef np.ndarray[long_double_type, ndim=1] errs = np.zeros(2, dtype=obj_long_double_type)
 
 	if verbose>0:
 		print "Allocating intermediate matrices..."
@@ -284,7 +288,7 @@ def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 					   ind_type nY,
 					   np.ndarray[float, ndim=1] Y, np.ndarray[ind_type, ndim=1] ix_u, np.ndarray[ind_type, ndim=1] ix_i, ind_type nYv,
 					   np.ndarray[float, ndim=1] Yval, np.ndarray[ind_type, ndim=1] ix_u_val, np.ndarray[ind_type, ndim=1] ix_i_val,
-					   np.ndarray[long double, ndim=1] errs, ind_type k, int nthreads, int verbose, int full_llk, has_valset):
+					   np.ndarray[long_double_type, ndim=1] errs, ind_type k, int nthreads, int verbose, int full_llk, has_valset):
 
 	cdef np.ndarray[float, ndim=2] M2
 
@@ -777,12 +781,12 @@ cdef void update_Eps_shp(float* Eps_shp, float* Yb, ind_type* ix_d, ind_type nR,
 @cython.cdivision(True)
 cdef void llk_plus_rmse(float* T, float* B, float* Y,
 						ind_type* ix_u, ind_type* ix_i, ind_type nY, ind_type kszt,
-						long double* out, int nthreads, int add_mse, int full_llk) nogil:
+						long_double_type* out, int nthreads, int add_mse, int full_llk) nogil:
 	cdef ind_type i
 	cdef int one = 1
 	cdef float yhat
-	cdef long double out1 = 0
-	cdef long double out2 =  0
+	cdef long_double_type out1 = 0
+	cdef long_double_type out2 =  0
 	cdef int k = <int> kszt
 	if add_mse:
 		if full_llk:
