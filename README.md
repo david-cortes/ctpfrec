@@ -51,21 +51,23 @@ R_ui ~ Poisson((O + N) * (T + E)')
 
 A huge drawback of this model compared to LDA is that, as the matrices are non-negative, items with more words will have larger values in their factors/topics, which will result in them having higher scores regardless of their popularity. This effect can be somewhat decreased by using only a limited number of words to represent each item (scaling upwards the ones that don't have enough words), by standardizing the bag-of-words to have all rows summing up to a certain number (this is hard to do when the counts are supposed to be integers, but the package can still work mostly fine with decimals that are at least >= 0.9, and has the option to standardize the inputs), or to a lesser extent by standardizing the resulting Theta shape matrix to have its rows sum to 1 (also supported in the package options).
 
-
 ## Installation
 
 Package is available on PyPI, can be installed with
 
 ```pip install ctpfrec```
 
-As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio Build Tools installation with MSVC140 (or MinGW + GCC), otherwise the installation from `pip` might fail. For more details see this guide:
+
+As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio Build Tools installation (with MSVC140 component for `conda`) (or MinGW + GCC), and if using Anaconda, might also require configuring it to use said Visual Studio instead of MinGW, otherwise the installation from `pip` might fail. For more details see this guide:
 [Cython Extensions On Windows](https://github.com/cython/cython/wiki/CythonExtensionsOnWindows)
+
+On Python 2.7 on Windows, it might additionally require installing extra Visual Basic modules (untested).
 
 On Linux, the `pip` install should work out-of-the-box, as long as the system has `gcc`.
 
-On Mac, installing this package will first require setting up OpenMP for `clang` compiler (does not come by default in apple's redistributions), or installing `gcc`.
+On Mac, installing this package will first require getting `OpenMP` modules for the default `clang` compiler (redistributions from apple don't come with this essential component, even though `clang` itself does fully support it), or installing `gcc` (by default, apple systems will alias `gcc` to `clang`, which causes a lot of problems).
 
-The package has only been tested under Python 3.6 and **some functionalities will not work on Python 2.7**.
+The package has only been tested under Python 3.6.
 
 ## Sample usage
 
@@ -77,23 +79,23 @@ from ctpfrec import CTPF
 nusers = 10**2
 nitems = 10**2
 nwords = 5 * 10**2
-nobs = 10**4
+nobs   = 10**4
 nobs_bag_of_words = 10**4
 
 np.random.seed(1)
 counts_df = pd.DataFrame({
 	'UserId' : np.random.randint(nusers, size=nobs),
 	'ItemId' : np.random.randint(nitems, size=nobs),
-	'Count' : np.random.gamma(1, 1, size=nobs).astype('int32')
+	'Count'  : (np.random.gamma(1, 1, size=nobs) + 1).astype('int32')
 	})
-counts_df = counts_df.loc[counts_df.Count > 0]
+counts_df = counts_df.loc[~counts_df[['UserId', 'ItemId']].duplicated()].reset_index(drop=True)
 
 words_df = pd.DataFrame({
 	'ItemId' : np.random.randint(nitems, size=nobs_bag_of_words),
 	'WordId' : np.random.randint(nwords, size=nobs_bag_of_words),
-	'Count' : np.random.gamma(1, 1, size=nobs_bag_of_words).astype('int32')
+	'Count'  : (np.random.gamma(1, 1, size=nobs_bag_of_words) + 1).astype('int32')
 	})
-words_df = words_df.loc[words_df.Count > 0]
+words_df = words_df.loc[~words_df[['ItemId', 'WordId']].duplicated()].reset_index(drop=True)
 
 ## Fitting the model
 recommender = CTPF(k = 15, reindex=True)
@@ -137,7 +139,7 @@ It is also internally documented through docstrings (e.g. you can try `help(ctpf
 
 ## Speeding up optimization procedure
 
-For faster fitting and predictions, use SciPy and NumPy libraries compiled against MKL. In Windows, you can find Python wheels (installable with pip after downloading them) of numpy and scipy precompiled with MKL in [Christoph Gohlke's website](https://www.lfd.uci.edu/~gohlke/pythonlibs/). In Linux and Mac, these come by default in Anaconda installations (but are likely to get overwritten if you enable `conda-forge`).
+For faster fitting and predictions, use SciPy and NumPy libraries compiled against MKL or OpenBLAS. These come by default with MKL in Anaconda installations.
 
 The constructor for CTPF allows some parameters to make it run faster (if you know what you're doing): these are `allow_inconsistent_math=True`, `full_llk=False`, `stop_crit='diff-norm'`, `reindex=False`, `verbose=False`. See the documentation for more details.
 
