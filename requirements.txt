@@ -2,4 +2,4 @@ pandas
 numpy
 scipy 
 cython
-hpfrec
+hpfrec>=0.2.2.21
