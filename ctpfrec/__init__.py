@@ -821,7 +821,7 @@ class CTPF:
 				df[col1] = pd.Categorical(df[col1].values, new_mapping).codes
 		
 		else:
-			new_item_mapping = None
+			new_mapping = None
 
 		df = self._cast_df(df, ttl=ttl)
 		if self.standardize_items and (ttl != 'counts_df') and (nobs_before > df.shape[0]):
@@ -893,7 +893,7 @@ class CTPF:
 					items_take = np.in1d(h.user_mapping_, ids_counts_df)
 					## for which words to take, need to forcibly determine intersection
 					items_words_df = self._words_df.ItemId.unique()
-					items_intersect = np.in1d(items_words_df, items_counts_df)
+					items_intersect = np.in1d(items_words_df, ids_counts_df)
 					words_include = self._words_df.WordId.loc[np.in1d(self._words_df.ItemId, items_words_df[items_intersect])].unique()
 					words_take = pd.Categorical(words_include, h.item_mapping_).codes
 
@@ -1744,7 +1744,7 @@ class CTPF:
 			user_df, counts_df, new_user_mapping = self._process_extra_df(user_df, ttl='user_df', df2=counts_df)
 			counts_df['UserId'] -= self.nusers
 			user_df['UserId'] -= self.nusers
-			new_max_id = max(counts_df.UserId.max(), user_df.UserId.max()) + 1
+			new_max_id = int(max(counts_df.UserId.max(), user_df.UserId.max()) + 1)
 			if new_max_id <= 0:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
@@ -1772,7 +1772,7 @@ class CTPF:
 			
 			counts_df, new_user_mapping = self._process_extra_df(counts_df, ttl='counts_df')
 			counts_df['UserId'] -= self.nusers
-			new_max_id = counts_df.UserId.max() + 1
+			new_max_id = int(counts_df.UserId.max() + 1)
 			if new_max_id <= 0:
 				raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
@@ -1811,7 +1811,7 @@ class CTPF:
 		
 		## updating the list of seen items for these users
 		if self.keep_data and (counts_df is not None):
-			for u in range(new_max_id):
+			for u in range(int(new_max_id)):
 				items_this_user = counts_df.ItemId.values[counts_df.UserId == u]
 				self._n_seen_by_user = np.r_[self._n_seen_by_user, items_this_user.shape[0]]
 				self._st_ix_user = np.r_[self._st_ix_user, self.seen.shape[0]]
@@ -1825,7 +1825,7 @@ class CTPF:
 					self.user_dict_[new_user_mapping[u + self.nusers]] = u + self.nusers
 			self.nusers = self.user_mapping_.shape[0]
 		else:
-			self.nitems += new_max_id
+			self.nitems += int(new_max_id)
 
 		return True
 
