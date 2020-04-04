@@ -27,12 +27,12 @@ setup(
     packages = ['ctpfrec'],
     install_requires=[
      'pandas>=0.24',
-     'numpy',
+     'numpy>=1.17',
      'scipy',
      'cython',
      'hpfrec>=0.2.2.21'
 ],
-    version = '0.1.4',
+    version = '0.1.5',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

@@ -862,8 +862,8 @@ class CTPF:
 	def _initalize_parameters(self):
 		## TODO: make this function more modular
 
-		if self.random_seed is not None:
-			np.random.seed(self.random_seed)
+		rng = np.random.default_rng(seed = self.random_seed \
+									if (self.random_seed is not None) and (self.random_seed > 0) else None)
 
 		if self.initialize_hpf:
 			if self.verbose:
@@ -897,10 +897,10 @@ class CTPF:
 					words_include = self._words_df.WordId.loc[np.in1d(self._words_df.ItemId, items_words_df[items_intersect])].unique()
 					words_take = pd.Categorical(words_include, h.item_mapping_).codes
 
-				self.Theta_shp = (self.c * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
+				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
 				self.Theta_shp[h.user_mapping_[items_take],:] = h.Theta[items_take].copy()
 
-				self.Beta_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
+				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
 				self.Beta_shp[h.item_mapping_[words_take],:] = h.Beta[words_take].copy()
 				
 				self.Theta_rte = self.d + self.Beta_shp.sum(axis=0, keepdims=True)
@@ -908,19 +908,19 @@ class CTPF:
 
 			if np.isnan(self.Theta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Theta, will use a random start.")
-				self.Theta_shp = (self.c * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-				self.Theta_rte = (self.d * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
+				self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 			if np.isnan(self.Beta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Beta, will use a random start.")
-				self.Beta_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
-				self.Beta_rte = (self.b * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
+				self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 			if self.verbose:
 				print("**********************************")
 				print("")
 
 			if self._has_user_df:
-				self.Omega_shp = (self.e * 2*np.random.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-				self.Omega_rte = (self.f * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
+				self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 				if self.verbose:
 					print("Initializing Kappa through HPF...")
 					print("")
@@ -945,7 +945,7 @@ class CTPF:
 						attr_include = self._user_df.AttributeId.loc[np.in1d(self._user_df.UserId, users_user_df[users_intersect])].unique()
 						attr_take = pd.Categorical(attr_include, h.item_mapping_).codes
 
-					self.Kappa_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
+					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
 					self.Kappa_shp[h.item_mapping_[attr_take],:] = h.Beta[attr_take].copy()
 					self.Kappa_rte = self.b + h.Theta.sum(axis=0, keepdims=True)
 					del h
@@ -953,8 +953,8 @@ class CTPF:
 
 				if np.isnan(self.Kappa_shp).sum().sum() > 0:
 					warnings.warn("NaNs produced in initialization of Kappa, will use a random start.")
-					self.Kappa_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
-					self.Kappa_rte = (self.b * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
+					self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 				if self.verbose:
 					print("**********************************")
 					print("")
@@ -962,24 +962,24 @@ class CTPF:
 				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
 				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
 		else:
-			self.Beta_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
-			self.Theta_shp = (self.c * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-			self.Beta_rte = (self.b * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
-			self.Theta_rte = (self.d * 2*np.random.beta(20, 203, size=(1, self.k))).astype(ctypes.c_float)
+			self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
+			self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
+			self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+			self.Theta_rte = (self.d * 2*rng.beta(20, 203, size=(1, self.k))).astype(ctypes.c_float)
 			if self._has_user_df:
-				self.Kappa_shp = (self.a * 2*np.random.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
-				self.Kappa_rte = (self.b * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
+				self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 			else:
 				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
 				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
 		
-		self.Eta_shp = (self.e * 2*np.random.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-		self.Epsilon_shp = (self.g * 2*np.random.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-		self.Eta_rte = (self.f * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
-		self.Epsilon_rte = (self.h * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+		self.Eta_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
+		self.Epsilon_shp = (self.g * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
+		self.Eta_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+		self.Epsilon_rte = (self.h * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 		if self._has_user_df:
-			self.Omega_shp = (self.e * 2*np.random.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-			self.Omega_rte = (self.f * 2*np.random.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+			self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
+			self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 		else:
 			self.Omega_shp = np.empty((0,0), dtype=ctypes.c_float)
 			self.Omega_rte = np.empty((0,0), dtype=ctypes.c_float)

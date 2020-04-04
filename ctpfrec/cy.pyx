@@ -340,10 +340,9 @@ def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, ran
 	cdef np.ndarray[ind_type, ndim=1] ix_v_w = W.WordId.values
 	cdef ind_type nW = W.shape[0]
 
-	if random_seed is not None:
-		np.random.seed(random_seed)
+	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
 
-	cdef np.ndarray[float, ndim=2] Theta_shp = (a * 2*np.random.beta(20, 20, size=(nitems, k))).astype(ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Theta_shp = (a * 2*rng.beta(20, 20, size=(nitems, k))).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Theta_prev = Theta_shp.copy()
 	cdef np.ndarray[float, ndim=2] Z = np.empty((nW, k), dtype=ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Zconst = np.empty((nW, k), dtype=ctypes.c_float)
@@ -377,9 +376,8 @@ def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, ra
 	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype=ctypes.c_float)
 
-	if random_seed is not None:
-		np.random.seed(random_seed)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
+	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
+	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
 
 	## reusing the same functions for items with different parameters only
@@ -429,11 +427,10 @@ def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k
 	cdef np.ndarray[ind_type, ndim=1] ix_a_q = user_df.AttributeId.values
 	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype=ctypes.c_float)
 
-	if random_seed is not None:
-		np.random.seed(random_seed)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
+	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
+	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
-	cdef np.ndarray[float, ndim=2] Omega_shp = c * 2*np.random.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
+	cdef np.ndarray[float, ndim=2] Omega_shp = c * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
 
 	## reusing the same functions for items with different parameters only
 	update_Z_const_pred(&Ya_const[0,0], &Omega_rte[0,0], &Theta_shp[0,0], &Theta_rte[0,0],

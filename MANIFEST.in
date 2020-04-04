@@ -1,2 +1,7 @@
 global-include *.pyx
-global-include *.pxd 
+global-include *.pxd
+global-exclude *.c
+global-exclude *.h
+global-exclude *.so
+global-exclude *.dll
+exclude example/*
