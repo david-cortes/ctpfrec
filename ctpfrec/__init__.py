@@ -122,7 +122,8 @@ class CTPF:
 	stop_thr : float
 		Threshold for proportion increase in log-likelihood or l2-norm for difference between matrices.
 	reindex : bool
-		Whether to reindex data internally.
+		Whether to reindex data internally. Will be forced to 'False' if
+		passing sparse COO matrices to 'fit'.
 	miniter : int or None
 		Minimum number of iterations for which to run the optimization procedure. When using likelihood as a
 		stopping criterion, note that as the model is fit to both user-item interactions and item attributes,
@@ -723,11 +724,26 @@ class CTPF:
 			df = df[[col1, col2, 'Count']]
 
 		elif df.__class__.__name__ == 'coo_matrix':
-			df = pd.DataFrame({
-				'UserId' : df.row,
-				'ItemId' : df.col,
-				'Count' : df.data
-				})
+			if ttl == "counts_df":
+				df = pd.DataFrame({
+					'UserId' : df.row,
+					'ItemId' : df.col,
+					'Count' : df.data
+					})
+			elif ttl == "words_df":
+				df = pd.DataFrame({
+					'ItemId' : df.row,
+					'WordId' : df.col,
+					'Count' : df.data
+					})
+			elif ttl == "user_df":
+				df = pd.DataFrame({
+					'UserId' : df.row,
+					'AttributeId' : df.col,
+					'Count' : df.data
+					})
+			else:
+				self._unexpected_err_msg()
 
 		else:
 			raise ValueError("'" + ttl + "' must be a pandas data frame, a numpy array, or scipy sparse coo_matrix")
@@ -1046,18 +1062,21 @@ class CTPF:
 
 		Parameters
 		----------
-		counts_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
+		counts_df : DatFrame(n_samples, 3) or sparse COO(n_users, n_items)
 			User-Item interaction data with one row per non-zero observation, consisting of triplets ('UserId', 'ItemId', 'Count').
 			Must containin columns 'UserId', 'ItemId', and 'Count'.
-			Combinations of users and items not present are implicitly assumed to be zero by the model.
-		words_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
+			Combinations of users and items not present are implicitly assumed to be zero by the model. If passing a COO matrix,
+			will set ``self.reindex=False``.
+		words_df : DatFrame(n_samples, 3) or sparse COO(n_items, n_words)
 			Bag-of-word representation of items with one row per present unique word, consisting of triplets ('ItemId', 'WordId', 'Count').
 			Must contain columns 'ItemId', 'WordId', and 'Count'.
-			Combinations of items and words not present are implicitly assumed to be zero.
-		user_df : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
-			User attributes, same format as 'words_df'. Must contain columns 'UserId', 'AttributeId', 'Count'.
-		val_set : DatFrame or array (n_samples, 3), or sparse coo_matrix(n_users, n_items)
-			Validation set on which to monitor log-likelihood. Same format as counts_df.
+			Combinations of items and words not present are implicitly assumed to be zero. Must be of the same type
+			('DataFrame' or 'coo_matrix') as ``counts_df``.
+		user_df : DatFrame(n_samples, 3), or sparse COO(n_users, n_attr)
+			User attributes, same format as 'words_df'. Must contain columns 'UserId', 'AttributeId', 'Count'. Must be of the same type
+			('DataFrame' or 'coo_matrix') as ``counts_df``.
+		val_set : DatFrame(n_samples, 3), or sparse COO(n_users, n_items)
+			Validation set on which to monitor log-likelihood. Same format as ``counts_df``.
 
 		Returns
 		-------
@@ -1068,6 +1087,24 @@ class CTPF:
 		if self.stop_crit == 'val-llk':
 			if val_set is None:
 				raise ValueError("If 'stop_crit' is set to 'val-llk', must provide a validation set.")
+
+		## another basic check
+		if "coo_matrix" in [counts_df.__class__.__name__,
+							words_df.__class__.__name__,
+							user_df.__class__.__name__]:
+			has_coo = True
+		else:
+			has_coo = False
+		if "DataFrame" in [counts_df.__class__.__name__,
+							words_df.__class__.__name__,
+							user_df.__class__.__name__]:
+			has_df = True
+		else:
+			has_df = False
+		if has_df and has_coo:
+			raise ValueError("Cannot mix 'coo_matrix' and 'DataFrame' as inputs.")
+		if has_coo:
+			self.reindex = False
 
 		## running each sub-process
 		if self.verbose:

@@ -8,7 +8,7 @@ As it takes side information about items, it has the advantage of being able to 
 
 Supports parallelization, different stopping criteria for the optimziation procedure, and adding users/items without refitting the model entirely. The bottleneck computations are written in fast Cython code.
 
-For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec). For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec).
+For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec). For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec) and [poismf](https://github.com/david-cortes/poismf).
 
 ## Model description
 
@@ -98,6 +98,7 @@ words_df = pd.DataFrame({
 words_df = words_df.loc[~words_df[['ItemId', 'WordId']].duplicated()].reset_index(drop=True)
 
 ## Fitting the model
+## (Can also pass the inputs as COO matrices)
 recommender = CTPF(k = 15, reindex=True)
 recommender.fit(counts_df=counts_df, words_df=words_df)
 
