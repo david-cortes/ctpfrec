@@ -3,8 +3,18 @@ cimport numpy as np
 cimport cython
 from cython.parallel cimport prange
 from scipy.linalg.cython_blas cimport sdot
-from scipy.special.cython_special cimport psi, gamma
-from libc.math cimport log, exp, expf, HUGE_VALF, HUGE_VALL
+from scipy.special.cython_special cimport psi, gamma, loggamma
+## TODO: use libc.math once Cython 0.30 is released
+# from libc.math cimport log, logf, exp, expf, HUGE_VALF, HUGE_VALL
+cdef extern from "<math.h>":
+	double log(double x) nogil
+	float logf(float) nogil
+	long double logl(long double) nogil
+	double exp(double x) nogil
+	float expf(float) nogil
+	const double HUGE_VAL
+	const float HUGE_VALF
+	const long double HUGE_VALL
 import ctypes
 from hpfrec import cython_loops
 import time
@@ -791,23 +801,23 @@ cdef void llk_plus_rmse(float* T, float* B, float* Y,
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
 				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
-				out1 += Y[i]*log(yhat) - log(gamma(Y[i] + 1))
+				out1 += Y[i]*log(yhat) - loggamma(Y[i] + 1)
 				out2 += (Y[i] - yhat)**2
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
 				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
-				out1 += Y[i]*log(yhat)
+				out1 += Y[i]*logf(yhat)
 				out2 += (Y[i] - yhat)**2
 		out[0] = out1
 		out[1] = out2
 	else:
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - log(gamma(Y[i] + 1))
+				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - loggamma(Y[i] + 1)
 			out[0] = out1
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
+				out1 += Y[i]*logf(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
 			out[0] = out1
 	### Comment: adding += directly to *out triggers compiler optimizations that produce
 	### different (and wrong) results across different runs.
