@@ -8,7 +8,9 @@ As it takes side information about items, it has the advantage of being able to 
 
 Supports parallelization, different stopping criteria for the optimziation procedure, and adding users/items without refitting the model entirely. The bottleneck computations are written in fast Cython code.
 
-For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec). For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec) and [poismf](https://github.com/david-cortes/poismf).
+For a similar package for explicit feedback data see also [cmfrec](https://github.com/david-cortes/cmfrec).
+
+For Poisson factorization without side information see [hpfrec](https://github.com/david-cortes/hpfrec) and [poismf](https://github.com/david-cortes/poismf).
 
 ## Model description
 
