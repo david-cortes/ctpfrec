@@ -4,7 +4,7 @@ cimport cython
 from cython.parallel cimport prange
 from scipy.linalg.cython_blas cimport sdot
 from scipy.special.cython_special cimport psi, gamma
-from libc.math cimport log, exp
+from libc.math cimport log, exp, expf, HUGE_VALF, HUGE_VALL
 import ctypes
 from hpfrec import cython_loops
 import time
@@ -16,11 +16,13 @@ IF UNAME_SYSNAME == "Windows":
 	ctypedef long long ind_type
 	ctypedef double long_double_type
 	obj_long_double_type = ctypes.c_double
+	LD_HUGE_VAL = HUGE_VAL
 ELSE:
 	obj_ind_type = ctypes.c_size_t
 	ctypedef size_t ind_type
 	ctypedef long double long_double_type
 	obj_long_double_type = ctypes.c_longdouble
+	LD_HUGE_VAL = HUGE_VALL
 
 ### Main function
 #################
@@ -75,7 +77,7 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 		Theta_prev = Theta.copy()
 	else:
 		Theta_prev = np.empty((0,0), dtype=ctypes.c_float)
-	cdef long_double_type last_crit = - (10**37)
+	cdef long_double_type last_crit = - LD_HUGE_VAL
 	cdef np.ndarray[long_double_type, ndim=1] errs = np.zeros(2, dtype=obj_long_double_type)
 
 	if verbose>0:
@@ -489,13 +491,13 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 			st_ix_theta = ix_d[i] * K
 			st_ix_beta = ix_v[i] * K
 			sumrow = 0
-			maxval =  - 10**1
+			maxval =  - HUGE_VALF
 			for k in range(K):
 				Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
 				if Z[st_ix_z + k] > maxval:
 					maxval = Z[st_ix_z + k]
 			for k in range(K):
-				Z[st_ix_z + k] = exp(Z[st_ix_z + k] - maxval)
+				Z[st_ix_z + k] = expf(Z[st_ix_z + k] - maxval)
 				sumrow += Z[st_ix_z + k]
 			for k in range(K):
 				Z[st_ix_z + k] *= W[i] / sumrow
@@ -542,13 +544,13 @@ cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp,
 		st_ix_z = i * K
 		st_ix_theta = ix_d[i] * K
 		sumrow = 0
-		maxval = - 10**1
+		maxval = - HUGE_VALF
 		for k in range(K):
 			Z[st_ix_z + k] = Theta_shp[st_ix_theta + k] + Zconst[st_ix_z + k]
 			if Z[st_ix_z + k] > maxval:
 				maxval = Z[st_ix_z + k]
 		for k in range(K):
-			Z[st_ix_z + k] = exp(Z[st_ix_z + k] - maxval)
+			Z[st_ix_z + k] = expf(Z[st_ix_z + k] - maxval)
 			sumrow += Z[st_ix_z + k]
 		for k in range(K):
 			Z[st_ix_z + k] *= W[i] / sumrow
@@ -570,7 +572,7 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 			st_ix_d = ix_d_r[i] * K
 			st_ix_y = i * K
 			sumrow = 0
-			maxval = - 10**11
+			maxval = - HUGE_VALF
 			for k in range(K):
 				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
 				ix_2 = st_ix_d + k
@@ -581,8 +583,8 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 				if Yb[st_ix_y + k] > maxval:
 					maxval = Yb[st_ix_y + k]
 			for k in range(K):
-				Ya[st_ix_y + k] = exp(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = exp(Yb[st_ix_y + k] - maxval)
+				Ya[st_ix_y + k] = expf(Ya[st_ix_y + k] - maxval)
+				Yb[st_ix_y + k] = expf(Yb[st_ix_y + k] - maxval)
 				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 			for k in range(K):
 				Ya[st_ix_y + k] *= R[i] / sumrow
@@ -627,7 +629,7 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 			st_ix_u = ix_u_r[i + st_ix_doc[did]] * K
 			st_ix_y = i * K
 			sumrow = 0
-			maxval = - 10**11
+			maxval = - HUGE_VALF
 			for k in range(K):
 				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
 				ix_2 = st_ix_d + k
@@ -638,8 +640,8 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 				if Yb[st_ix_y + k] > maxval:
 					maxval = Yb[st_ix_y + k]
 			for k in range(K):
-				Ya[st_ix_y + k] = exp(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = exp(Yb[st_ix_y + k] - maxval)
+				Ya[st_ix_y + k] = expf(Ya[st_ix_y + k] - maxval)
+				Yb[st_ix_y + k] = expf(Yb[st_ix_y + k] - maxval)
 				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 			for k in range(K):
 				Ya[st_ix_y + k] *= R[i] / sumrow
