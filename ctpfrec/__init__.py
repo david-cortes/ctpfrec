@@ -878,8 +878,7 @@ class CTPF:
 	def _initalize_parameters(self):
 		## TODO: make this function more modular
 
-		rng = np.random.default_rng(seed = self.random_seed \
-									if (self.random_seed is not None) and (self.random_seed > 0) else None)
+		rng = np.random.Generator(np.random.MT19937(seed = self.random_seed))
 
 		if self.initialize_hpf:
 			if self.verbose:
