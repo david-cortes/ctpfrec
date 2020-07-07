@@ -30,9 +30,9 @@ setup(
      'numpy>=1.17',
      'scipy',
      'cython',
-     'hpfrec>=0.2.2.21'
+     'hpfrec>=0.2.3'
 ],
-    version = '0.1.7',
+    version = '0.1.8',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

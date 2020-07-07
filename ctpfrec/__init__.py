@@ -1,8 +1,8 @@
 import pandas as pd, numpy as np
 import multiprocessing, os, warnings
-import ctpfrec.cy as cy
+from . import cy
 import ctypes, types, inspect
-from hpfrec import HPF, cython_loops
+from hpfrec import HPF, cython_loops_float as cython_loops
 pd.options.mode.chained_assignment = None
 
 
@@ -1146,9 +1146,9 @@ class CTPF:
 			self._user_df, self._has_user_df,
 			self._counts_df, self._words_df, cython_loops.cast_ind_type(self.k), self.step_size,
 			cython_loops.cast_int(self.step_size is not None), cython_loops.cast_int(self.sum_exp_trick),
-			cython_loops.cast_float(self.a), cython_loops.cast_float(self.b), cython_loops.cast_float(self.c),
-			cython_loops.cast_float(self.d), cython_loops.cast_float(self.e), cython_loops.cast_float(self.f),
-			cython_loops.cast_float(self.g), cython_loops.cast_float(self.h),
+			cython_loops.cast_real_t(self.a), cython_loops.cast_real_t(self.b), cython_loops.cast_real_t(self.c),
+			cython_loops.cast_real_t(self.d), cython_loops.cast_real_t(self.e), cython_loops.cast_real_t(self.f),
+			cython_loops.cast_real_t(self.g), cython_loops.cast_real_t(self.h),
 			cython_loops.cast_int(self.ncores), cython_loops.cast_int(self.maxiter),
 			cython_loops.cast_int(self.miniter), cython_loops.cast_int(self.check_every),
 			self.stop_crit, self.stop_thr, cython_loops.cast_int(self.verbose),
@@ -1499,8 +1499,8 @@ class CTPF:
 
 		new_Theta_shp, temp = cy.calc_item_factors(
 					words_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k), stop_thr, random_seed, ncores,
-					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
-					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
+					cython_loops.cast_real_t(self.a), cython_loops.cast_real_t(self.b),
+					cython_loops.cast_real_t(self.c), cython_loops.cast_real_t(self.d),
 					self.Theta_rte, self.Beta_shp, self.Beta_rte
 					)
 
@@ -1594,8 +1594,8 @@ class CTPF:
 		new_Omega_shp, temp = cy.calc_item_factors(
 					user_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
-					cython_loops.cast_float(self.a), cython_loops.cast_float(self.b),
-					cython_loops.cast_float(self.c), cython_loops.cast_float(self.d),
+					cython_loops.cast_real_t(self.a), cython_loops.cast_real_t(self.b),
+					cython_loops.cast_real_t(self.c), cython_loops.cast_real_t(self.d),
 					self.Omega_rte, self.Kappa_shp, self.Kappa_rte
 					)
 
@@ -1638,7 +1638,7 @@ class CTPF:
 
 		assert stop_thr > 0
 		assert isinstance(stop_thr, float)
-		stop_thr = cython_loops.cast_float(stop_thr)
+		stop_thr = cython_loops.cast_real_t(stop_thr)
 
 		if random_seed is not None:
 			if isinstance(random_seed, float):
@@ -1788,7 +1788,7 @@ class CTPF:
 			new_Omega_shp, new_Eta_shp = cy.calc_user_factors_full(
 					counts_df, user_df, new_max_id, cython_loops.cast_int(maxiter), cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
-					cython_loops.cast_float(self.c), cython_loops.cast_float(self.e),
+					cython_loops.cast_real_t(self.c), cython_loops.cast_real_t(self.e),
 					self.Omega_rte, self.Eta_rte,
 					self.Theta_shp, self.Theta_rte,
 					self.Epsilon_shp, self.Epsilon_rte,
@@ -1816,7 +1816,7 @@ class CTPF:
 			new_Eta_shp = cy.calc_user_factors(
 					counts_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
-					cython_loops.cast_float(self.e), self.Eta_rte,
+					cython_loops.cast_real_t(self.e), self.Eta_rte,
 					self.Theta_shp, self.Theta_rte, self.Epsilon_shp, self.Epsilon_rte
 					)
 

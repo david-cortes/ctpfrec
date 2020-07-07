@@ -16,7 +16,7 @@ cdef extern from "<math.h>":
 	const float HUGE_VALF
 	const long double HUGE_VALL
 import ctypes
-from hpfrec import cython_loops
+from hpfrec import cython_loops_float as cython_loops
 import time
 
 ## Note: As of the end of 2018, MSVC is still stuck with OpenMP 2.0 (released 2002), which does not support
