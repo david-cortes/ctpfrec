@@ -981,7 +981,7 @@ class CTPF:
 			self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
 			self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
 			self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
-			self.Theta_rte = (self.d * 2*rng.beta(20, 203, size=(1, self.k))).astype(ctypes.c_float)
+			self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
 			if self._has_user_df:
 				self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
 				self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
