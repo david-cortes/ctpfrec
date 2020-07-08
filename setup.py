@@ -32,7 +32,7 @@ setup(
      'cython',
      'hpfrec>=0.2.3'
 ],
-    version = '0.1.8',
+    version = '0.1.9',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -42,6 +42,8 @@ setup(
     classifiers = [],
 
     cmdclass = {'build_ext': build_ext_subclass},
-    ext_modules = [Extension("ctpfrec.cy", sources=["ctpfrec/cy.pyx"], include_dirs=[numpy.get_include()]),
+    ext_modules = [
+      Extension("ctpfrec.cy_double", sources=["ctpfrec/cy_double.pyx"], include_dirs=[numpy.get_include()]),
+      Extension("ctpfrec.cy_float", sources=["ctpfrec/cy_float.pyx"], include_dirs=[numpy.get_include()])
         ]
 )

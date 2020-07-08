@@ -1,8 +1,8 @@
 import pandas as pd, numpy as np
 import multiprocessing, os, warnings
-from . import cy
+from . import cy_double, cy_float
 import ctypes, types, inspect
-from hpfrec import HPF, cython_loops_float as cython_loops
+from hpfrec import HPF, cython_loops_float, cython_loops_double
 pd.options.mode.chained_assignment = None
 
 
@@ -137,6 +137,11 @@ class CTPF:
 		Calculate log-likelihood every N iterations.
 	verbose : bool
 		Whether to print convergence messages.
+	use_float : bool
+		Whether to use the C float type (typically ``np.float32``). Using float types (as compared to double)
+		results in less memory usage and faster operations, but it has less numeric precision and the results
+		will be slightly worse compared to using double.
+		If passing ``False``, will use C double (typically ``np.float64``).
 	random_seed : int or None
 		Random seed to use when starting the parameters.
 	ncores : int
@@ -245,7 +250,7 @@ class CTPF:
 	def __init__(self, k=50, a=.3, b=.3, c=.3, d=.3, e=.3, f=.3, g=.3, h=.3,
 				 stop_crit='train-llk', stop_thr=1e-3, reindex=True,
 				 miniter=25, maxiter=70, check_every=10, verbose=True,
-				 random_seed=None, ncores=-1, initialize_hpf=True,
+				 use_float=True, random_seed=None, ncores=-1, initialize_hpf=True,
 				 standardize_items=False, rescale_factors=False,
 				 missing_items='include', step_size=lambda x: 1-1/np.sqrt(x+1),
 				 allow_inconsistent_math=False, full_llk=False,
@@ -371,6 +376,7 @@ class CTPF:
 		self.stop_thr = stop_thr
 		self.save_folder = save_folder
 		self.verbose = verbose
+		self.use_float = bool(use_float)
 		self.produce_dicts = bool(produce_dicts)
 		self.full_llk = bool(full_llk)
 		self.keep_all_objs = bool(keep_all_objs)
@@ -701,10 +707,11 @@ class CTPF:
 		return col1, col2, subj
 
 	def _cast_df(self, df, ttl):
+		cy = cy_float if self.use_float else cy_double
 		col1, col2, subj = self._cols_from_ttl(ttl)
 		df[col1] = df[col1].values.astype(cy.obj_ind_type)
 		df[col2] = df[col2].values.astype(cy.obj_ind_type)
-		df['Count'] = df.Count.astype(ctypes.c_float)
+		df['Count'] = df.Count.astype(ctypes.c_float if self.use_float else ctypes.c_double if self.use_float else ctypes.c_double)
 		return df
 
 	def _check_df(self, df, ttl):
@@ -877,6 +884,7 @@ class CTPF:
 
 	def _initalize_parameters(self):
 		## TODO: make this function more modular
+		## TODO: improve the way of adding random noise in the initialization
 
 		rng = np.random.Generator(np.random.MT19937(seed = self.random_seed))
 
@@ -885,7 +893,7 @@ class CTPF:
 				print("Initializing Theta and Beta through HPF...")
 				print("")
 			h = HPF(k=self.k, verbose=self.verbose, reindex=True, produce_dicts=False, stop_crit='diff-norm',
-					stop_thr=self.stop_thr, random_seed=self.random_seed, keep_all_objs=False,
+					stop_thr=self.stop_thr, random_seed=self.random_seed, keep_all_objs=False, use_float=self.use_float,
 					sum_exp_trick=self.sum_exp_trick, allow_inconsistent_math=self.allow_inconsistent_math,)
 			h.fit(self._words_df.rename(columns={'ItemId':'UserId', 'WordId':'ItemId'}).copy())
 			if (h.nusers == self.nitems) and (h.nitems == self.nwords):
@@ -912,10 +920,10 @@ class CTPF:
 					words_include = self._words_df.WordId.loc[np.in1d(self._words_df.ItemId, items_words_df[items_intersect])].unique()
 					words_take = pd.Categorical(words_include, h.item_mapping_).codes
 
-				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
+				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 				self.Theta_shp[h.user_mapping_[items_take],:] = h.Theta[items_take].copy()
 
-				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
+				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 				self.Beta_shp[h.item_mapping_[words_take],:] = h.Beta[words_take].copy()
 				
 				self.Theta_rte = self.d + self.Beta_shp.sum(axis=0, keepdims=True)
@@ -923,24 +931,24 @@ class CTPF:
 
 			if np.isnan(self.Theta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Theta, will use a random start.")
-				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-				self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 			if np.isnan(self.Beta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Beta, will use a random start.")
-				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
-				self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 			if self.verbose:
 				print("**********************************")
 				print("")
 
 			if self._has_user_df:
-				self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-				self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 				if self.verbose:
 					print("Initializing Kappa through HPF...")
 					print("")
 				h = HPF(k=self.k, verbose=self.verbose, reindex=True, produce_dicts=False, stop_crit='diff-norm',
-					stop_thr=self.stop_thr, random_seed=self.random_seed, keep_all_objs=False,
+					stop_thr=self.stop_thr, random_seed=self.random_seed, keep_all_objs=False, use_float=self.use_float,
 					sum_exp_trick=self.sum_exp_trick, allow_inconsistent_math=self.allow_inconsistent_math)
 				h.fit(self._user_df.rename(columns={'AttributeId':'ItemId'}).copy())
 				
@@ -960,7 +968,7 @@ class CTPF:
 						attr_include = self._user_df.AttributeId.loc[np.in1d(self._user_df.UserId, users_user_df[users_intersect])].unique()
 						attr_take = pd.Categorical(attr_include, h.item_mapping_).codes
 
-					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
+					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 					self.Kappa_shp[h.item_mapping_[attr_take],:] = h.Beta[attr_take].copy()
 					self.Kappa_rte = self.b + h.Theta.sum(axis=0, keepdims=True)
 					del h
@@ -968,36 +976,36 @@ class CTPF:
 
 				if np.isnan(self.Kappa_shp).sum().sum() > 0:
 					warnings.warn("NaNs produced in initialization of Kappa, will use a random start.")
-					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
-					self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+					self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 				if self.verbose:
 					print("**********************************")
 					print("")
 			else:
-				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
-				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
+				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 		else:
-			self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float)
-			self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-			self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
-			self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+			self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 			if self._has_user_df:
-				self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float)
-				self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+				self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 			else:
-				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float)
-				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float)
+				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 		
-		self.Eta_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-		self.Epsilon_shp = (self.g * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float)
-		self.Eta_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
-		self.Epsilon_rte = (self.h * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+		self.Eta_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+		self.Epsilon_shp = (self.g * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+		self.Eta_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+		self.Epsilon_rte = (self.h * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 		if self._has_user_df:
-			self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float)
-			self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float)
+			self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
 		else:
-			self.Omega_shp = np.empty((0,0), dtype=ctypes.c_float)
-			self.Omega_rte = np.empty((0,0), dtype=ctypes.c_float)
+			self.Omega_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Omega_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 
 		self._divide_parameters(add_beta=False)
 
@@ -1105,6 +1113,9 @@ class CTPF:
 		if has_coo:
 			self.reindex = False
 
+		cy = cy_float if self.use_float else cy_double
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
+
 		## running each sub-process
 		if self.verbose:
 			self._print_st_msg()
@@ -1117,11 +1128,11 @@ class CTPF:
 			self.val_set = pd.DataFrame({
 				'UserId': np.empty(0, dtype=cy.obj_ind_type),
 				'ItemId': np.empty(0, dtype=cy.obj_ind_type),
-				'Count': np.empty(0, dtype=ctypes.c_float)})
+				'Count': np.empty(0, dtype=ctypes.c_float if self.use_float else ctypes.c_double)})
 		if not self._has_user_df:
 			self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
 				'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
-				'Count':np.empty(0, dtype=ctypes.c_float)})
+				'Count':np.empty(0, dtype=ctypes.c_float if self.use_float else ctypes.c_double)})
 		if self.verbose:
 			print("Initializing parameters...")
 		self._initalize_parameters()
@@ -1134,7 +1145,7 @@ class CTPF:
 			else:
 				self._user_df = pd.DataFrame({'UserId':np.empty(0, dtype=cy.obj_ind_type),
 											  'AttributeId':np.empty(0, dtype=cy.obj_ind_type),
-											  'Count':np.empty(0, dtype=ctypes.c_float)})
+											  'Count':np.empty(0, dtype=ctypes.c_float if self.use_float else ctypes.c_double)})
 
 		## fitting the model
 		self.niter = cy.fit_ctpf(
@@ -1351,6 +1362,9 @@ class CTPF:
 			Item(s) for which to predict for each user.
 		"""
 		assert self.is_fitted
+		cy = cy_float if self.use_float else cy_double
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
+
 		if isinstance(user, list) or isinstance(user, tuple):
 			user = np.array(user)
 		if isinstance(item, list) or isinstance(item, tuple):
@@ -1496,6 +1510,8 @@ class CTPF:
 		if new_max_id <= 0:
 			raise ValueError("Numeration of item IDs overlaps with IDs passed to '.fit'.")
 
+		cy = cy_float if self.use_float else cy_double
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
 		new_Theta_shp, temp = cy.calc_item_factors(
 					words_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k), stop_thr, random_seed, ncores,
 					cython_loops.cast_real_t(self.a), cython_loops.cast_real_t(self.b),
@@ -1590,6 +1606,8 @@ class CTPF:
 		## Will reuse the exact same function from the add items, need to change names accordingly
 		user_df.rename(columns={'UserId':'ItemId', 'AttributeId':'WordId'}, inplace=True)
 
+		cy = cy_float if self.use_float else cy_double
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
 		new_Omega_shp, temp = cy.calc_item_factors(
 					user_df, new_max_id, maxiter, cython_loops.cast_ind_type(self.k),
 					stop_thr, random_seed, ncores,
@@ -1620,6 +1638,8 @@ class CTPF:
 		if not self.keep_all_objs:
 			msg = "Can only add " + err_subj + "s to a fitted model when called with 'keep_all_objs=True'."
 			raise ValueError(msg)
+
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
 
 		if ncores is None:
 			ncores = 1 
@@ -1696,9 +1716,9 @@ class CTPF:
 		new_Theta = new_Theta_shp / self.Theta_rte
 		self.Theta_shp = np.r_[self.Theta_shp, new_Theta]
 		self.Theta = np.r_[self.Theta, new_Theta_shp]
-		self.Epsilon = np.r_[self.Epsilon, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
-		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
-		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float)]
+		self.Epsilon = np.r_[self.Epsilon, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
+		self.Epsilon_shp = np.r_[self.Epsilon_shp, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
+		self.Epsilon_rte = np.r_[self.Epsilon_rte, np.zeros((int(new_max_id), int(self.k)), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
 		self._M2 = np.r_[self._M2, new_Theta]
 
 
@@ -1774,6 +1794,9 @@ class CTPF:
 		if (counts_df is None) and (not self._has_user_df):
 			raise ValueError("Must pass 'counts_df' to add a new user.")
 
+		cy = cy_float if self.use_float else cy_double
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
+
 		
 		if (counts_df is not None) and (user_df is not None) and self._has_user_df:
 			## factors based on both attributes and interactions
@@ -1825,8 +1848,8 @@ class CTPF:
 			self.Eta = np.r_[self.Eta, new_Eta]
 			self._M1 = np.r_[self._M1, new_Eta]
 			if self._has_user_df:
-				self.Omega = np.r_[self.Omega, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
-				self.Omega_shp = np.r_[self.Omega_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
+				self.Omega = np.r_[self.Omega, np.zeros((new_max_id, self.k), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
+				self.Omega_shp = np.r_[self.Omega_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
 
 		## factors based on user attributes
 		else:
@@ -1840,8 +1863,8 @@ class CTPF:
 			new_Omega = new_Omega_shp / self.Omega_rte
 			self.Omega_shp = np.r_[self.Omega_shp, new_Omega_shp]
 			self.Omega = np.r_[self.Omega, new_Omega]
-			self.Eta = np.r_[self.Eta, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
-			self.Eta_shp = np.r_[self.Eta_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float)]
+			self.Eta = np.r_[self.Eta, np.zeros((new_max_id, self.k), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
+			self.Eta_shp = np.r_[self.Eta_shp, np.zeros((new_max_id, self.k), dtype=ctypes.c_float if self.use_float else ctypes.c_double)]
 			self._M1 = np.r_[self._M1, new_Omega]
 
 		
@@ -1896,6 +1919,7 @@ class CTPF:
 		"""
 		assert self.is_fitted
 		HPF._process_valset(self, counts_df, valset=False)
+		cython_loops = cython_loops_float if self.use_float else cython_loops_double
 		out = {'llk': cython_loops.calc_llk(self.val_set.Count.values,
 											self.val_set.UserId.values,
 											self.val_set.ItemId.values,

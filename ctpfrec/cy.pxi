@@ -2,21 +2,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 from cython.parallel cimport prange
-from scipy.linalg.cython_blas cimport sdot
 from scipy.special.cython_special cimport psi, gamma, loggamma
-## TODO: use libc.math once Cython 0.30 is released
-# from libc.math cimport log, logf, exp, expf, HUGE_VALF, HUGE_VALL
-cdef extern from "<math.h>":
-	double log(double x) nogil
-	float logf(float) nogil
-	long double logl(long double) nogil
-	double exp(double x) nogil
-	float expf(float) nogil
-	const double HUGE_VAL
-	const float HUGE_VALF
-	const long double HUGE_VALL
-import ctypes
-from hpfrec import cython_loops_float as cython_loops
 import time
 
 ## Note: As of the end of 2018, MSVC is still stuck with OpenMP 2.0 (released 2002), which does not support
@@ -36,17 +22,17 @@ ELSE:
 
 ### Main function
 #################
-def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
-			 np.ndarray[float, ndim=2] Beta_shp, np.ndarray[float, ndim=2] Beta_rte,
-			 np.ndarray[float, ndim=2] Eta_shp, np.ndarray[float, ndim=2] Eta_rte,
-			 np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte,
-			 np.ndarray[float, ndim=2] Omega_shp, np.ndarray[float, ndim=2] Omega_rte,
-			 np.ndarray[float, ndim=2] Kappa_shp, np.ndarray[float, ndim=2] Kappa_rte,
-			 np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Eta,
-			 np.ndarray[float, ndim=2] Eps, np.ndarray[float, ndim=2] Omega,
+def fit_ctpf(np.ndarray[real_t, ndim=2] Theta_shp, np.ndarray[real_t, ndim=2] Theta_rte,
+			 np.ndarray[real_t, ndim=2] Beta_shp, np.ndarray[real_t, ndim=2] Beta_rte,
+			 np.ndarray[real_t, ndim=2] Eta_shp, np.ndarray[real_t, ndim=2] Eta_rte,
+			 np.ndarray[real_t, ndim=2] Eps_shp, np.ndarray[real_t, ndim=2] Eps_rte,
+			 np.ndarray[real_t, ndim=2] Omega_shp, np.ndarray[real_t, ndim=2] Omega_rte,
+			 np.ndarray[real_t, ndim=2] Kappa_shp, np.ndarray[real_t, ndim=2] Kappa_rte,
+			 np.ndarray[real_t, ndim=2] Theta, np.ndarray[real_t, ndim=2] Eta,
+			 np.ndarray[real_t, ndim=2] Eps, np.ndarray[real_t, ndim=2] Omega,
 			 user_df, has_user_df,
 			 df, W, ind_type k, step_size, has_step_size, int sum_exp_trick,
-			 float a, float b, float c, float d, float e, float f, float g, float h,
+			 real_t a, real_t b, real_t c, real_t d, real_t e, real_t f, real_t g, real_t h,
 			 int nthreads, int maxiter, int miniter, int check_every,
 			 stop_crit, stop_thr, verbose, save_folder,
 			 int allow_inconsistent, int has_valset, int full_llk,
@@ -59,19 +45,19 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 	cdef ind_type nusers = Eta_shp.shape[0]
 	cdef ind_type nitems = Theta_shp.shape[0]
 	cdef ind_type nwords = Beta_shp.shape[0]
-	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
+	cdef np.ndarray[real_t, ndim=1] Warr = W.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_d_w = W.ItemId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_v_w = W.WordId.values
-	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
+	cdef np.ndarray[real_t, ndim=1] Rarr = df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_d_r = df.ItemId.values
 
-	cdef np.ndarray[float, ndim=1] Rval = val_df.Count.values
+	cdef np.ndarray[real_t, ndim=1] Rval = val_df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_val = val_df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_d_val = val_df.ItemId.values
 	cdef ind_type nRv = val_df.shape[0]
 
-	cdef np.ndarray[float, ndim=1] Qarr
+	cdef np.ndarray[real_t, ndim=1] Qarr
 	cdef np.ndarray[ind_type, ndim=1] ix_u_q, ix_a_q
 	cdef ind_type nQ, nattr
 	if has_user_df:
@@ -81,28 +67,28 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 		nQ = user_df.shape[0]
 		nattr = Kappa_shp.shape[0]
 
-	cdef np.ndarray[float, ndim=2] Theta_shp_prev, Theta_rte_prev, Beta_shp_prev, Beta_rte_prev
-	cdef np.ndarray[float, ndim=2] Theta_prev
+	cdef np.ndarray[real_t, ndim=2] Theta_shp_prev, Theta_rte_prev, Beta_shp_prev, Beta_rte_prev
+	cdef np.ndarray[real_t, ndim=2] Theta_prev
 	if stop_crit == 'diff-norm':
 		Theta_prev = Theta.copy()
 	else:
-		Theta_prev = np.empty((0,0), dtype=ctypes.c_float)
+		Theta_prev = np.empty((0,0), dtype=c_real_t)
 	cdef long_double_type last_crit = - LD_HUGE_VAL
 	cdef np.ndarray[long_double_type, ndim=1] errs = np.zeros(2, dtype=obj_long_double_type)
 
 	if verbose>0:
-		print "Allocating intermediate matrices..."
-	cdef np.ndarray[float, ndim=2] Z  = np.empty((nW, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yc, Yd, X
+		print("Allocating intermediate matrices...")
+	cdef np.ndarray[real_t, ndim=2] Z  = np.empty((nW, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Ya = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yb = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yc, Yd, X
 	if has_user_df:
-		Yc = np.empty((nR, k), dtype=ctypes.c_float)
-		Yd = np.empty((nR, k), dtype=ctypes.c_float)
-		X  = np.empty((nQ, k), dtype=ctypes.c_float)
+		Yc = np.empty((nR, k), dtype=c_real_t)
+		Yd = np.empty((nR, k), dtype=c_real_t)
+		X  = np.empty((nQ, k), dtype=c_real_t)
 
 	if verbose>0:
-		print "Initializing optimization procedure..."
+		print("Initializing optimization procedure...")
 	cdef double st_time = time.time()
 
 	for i in range(maxiter):
@@ -132,8 +118,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			else:
 				Theta_rte[:,:] = d + (Beta_shp/Beta_rte).sum(axis=0, keepdims=True) + Eta.sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Theta_shp and Theta_rte get wrong results, but can be somehow fixed by adding this:
-			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=ctypes.c_float)
-			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=ctypes.c_float)
+			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=c_real_t)
+			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=c_real_t)
 			Theta[:,:] = Theta_shp / Theta_rte
 
 			## update beta
@@ -195,8 +181,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 			else:
 				Theta_rte[:,:] = d + (Beta_shp/Beta_rte).sum(axis=0, keepdims=True) + (Omega + Eta).sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Theta_shp and Theta_rte get wrong results, but can be somehow fixed by adding this:
-			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=ctypes.c_float)
-			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=ctypes.c_float)
+			Theta_shp = Theta_shp + np.zeros((Theta_shp.shape[0], Theta_shp.shape[1]), dtype=c_real_t)
+			Theta_rte = Theta_rte + np.zeros((Theta_rte.shape[0], Theta_rte.shape[1]), dtype=c_real_t)
 			Theta[:,:] = Theta_shp / Theta_rte
 
 			## Beta_shp := a + sum_i(Z)
@@ -218,8 +204,8 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 						     &ix_u_q[0], &ix_u_r[0], nQ, nR, k, allow_inconsistent, nthreads)
 			Omega_rte[:,:] = d + (Kappa_shp/Kappa_rte).sum(axis=0, keepdims=True) + (Theta + Eps).sum(axis=0, keepdims=True)
 			## FIXME: for some reason, Omega_shp and Omega_rte get wrong results, but can be somehow fixed by adding this:
-			Omega_shp = Omega_shp + np.zeros((Omega_shp.shape[0], Omega_shp.shape[1]), dtype=ctypes.c_float)
-			Omega_rte = Omega_rte + np.zeros((Omega_rte.shape[0], Omega_rte.shape[1]), dtype=ctypes.c_float)
+			Omega_shp = Omega_shp + np.zeros((Omega_shp.shape[0], Omega_shp.shape[1]), dtype=c_real_t)
+			Omega_rte = Omega_rte + np.zeros((Omega_rte.shape[0], Omega_rte.shape[1]), dtype=c_real_t)
 			Omega[:,:] = Omega_shp / Omega_rte
 
 			## Kappa_shp := a + sum_u(X)
@@ -295,19 +281,19 @@ def fit_ctpf(np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Thet
 ### Helpers
 ###########
 def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
-					   np.ndarray[float, ndim=2] Theta, np.ndarray[float, ndim=2] Theta_prev,
-					   np.ndarray[float, ndim=2] Eta, np.ndarray[float, ndim=2] Eps,
+					   np.ndarray[real_t, ndim=2] Theta, np.ndarray[real_t, ndim=2] Theta_prev,
+					   np.ndarray[real_t, ndim=2] Eta, np.ndarray[real_t, ndim=2] Eps,
 					   ind_type nY,
-					   np.ndarray[float, ndim=1] Y, np.ndarray[ind_type, ndim=1] ix_u, np.ndarray[ind_type, ndim=1] ix_i, ind_type nYv,
-					   np.ndarray[float, ndim=1] Yval, np.ndarray[ind_type, ndim=1] ix_u_val, np.ndarray[ind_type, ndim=1] ix_i_val,
+					   np.ndarray[real_t, ndim=1] Y, np.ndarray[ind_type, ndim=1] ix_u, np.ndarray[ind_type, ndim=1] ix_i, ind_type nYv,
+					   np.ndarray[real_t, ndim=1] Yval, np.ndarray[ind_type, ndim=1] ix_u_val, np.ndarray[ind_type, ndim=1] ix_i_val,
 					   np.ndarray[long_double_type, ndim=1] errs, ind_type k, int nthreads, int verbose, int full_llk, has_valset):
 
-	cdef np.ndarray[float, ndim=2] M2
+	cdef np.ndarray[real_t, ndim=2] M2
 
 	if stop_crit == 'diff-norm':
 		last_crit = np.linalg.norm(Theta - Theta_prev)
 		if verbose:
-			cython_loops.print_norm_diff(i+1, check_every, <float> last_crit)
+			cython_loops.print_norm_diff(i+1, check_every, <real_t> last_crit)
 		if last_crit < stop_thr:
 			return True, last_crit
 		Theta_prev[:,:] = Theta.copy()
@@ -344,20 +330,20 @@ def assess_convergence(int i, check_every, stop_crit, last_crit, stop_thr,
 ### Functions for updating without refitting
 ############################################
 def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
-					  float a, float b, float c, float d,
-					  np.ndarray[float, ndim=2] Theta_rte,
-					  np.ndarray[float, ndim=2] Beta_shp, np.ndarray[float, ndim=2] Beta_rte):
-	cdef np.ndarray[float, ndim=1] Warr = W.Count.values
+					  real_t a, real_t b, real_t c, real_t d,
+					  np.ndarray[real_t, ndim=2] Theta_rte,
+					  np.ndarray[real_t, ndim=2] Beta_shp, np.ndarray[real_t, ndim=2] Beta_rte):
+	cdef np.ndarray[real_t, ndim=1] Warr = W.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_i_w = W.ItemId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_v_w = W.WordId.values
 	cdef ind_type nW = W.shape[0]
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
 
-	cdef np.ndarray[float, ndim=2] Theta_shp = (a * 2*rng.beta(20, 20, size=(nitems, k))).astype(ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Theta_prev = Theta_shp.copy()
-	cdef np.ndarray[float, ndim=2] Z = np.empty((nW, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Zconst = np.empty((nW, k), dtype=ctypes.c_float)
+	cdef np.ndarray[real_t, ndim=2] Theta_shp = (a * 2*rng.beta(20, 20, size=(nitems, k))).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Theta_prev = Theta_shp.copy()
+	cdef np.ndarray[real_t, ndim=2] Z = np.empty((nW, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Zconst = np.empty((nW, k), dtype=c_real_t)
 	update_Z_const_pred(&Zconst[0,0], &Theta_rte[0,0], &Beta_shp[0,0], &Beta_rte[0,0],
 						&ix_i_w[0], &ix_v_w[0], nW, k, nthreads)
 
@@ -376,21 +362,21 @@ def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, ran
 	return Theta_shp, Z
 
 def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
-					  float e, np.ndarray[float, ndim=2] Eta_rte,
-					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
-					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte):
+					  real_t e, np.ndarray[real_t, ndim=2] Eta_rte,
+					  np.ndarray[real_t, ndim=2] Theta_shp, np.ndarray[real_t, ndim=2] Theta_rte,
+					  np.ndarray[real_t, ndim=2] Eps_shp, np.ndarray[real_t, ndim=2] Eps_rte):
 	cdef ind_type nR = df.shape[0]
-	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
+	cdef np.ndarray[real_t, ndim=1] Rarr = df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[real_t, ndim=2] Ya = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Ya_const = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yb = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yb_const = np.empty((nR, k), dtype=c_real_t)
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
+	cdef np.ndarray[real_t, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Eta_prev = Eta_shp.copy()
 
 	## reusing the same functions for items with different parameters only
 	update_Z_const_pred(&Ya_const[0,0], &Eta_rte[0,0], &Theta_shp[0,0], &Theta_rte[0,0],
@@ -415,34 +401,34 @@ def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, ra
 	return Eta_shp
 
 def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k, stop_thr, random_seed, int nthreads,
-					  float c, float e, np.ndarray[float, ndim=2] Omega_rte, np.ndarray[float, ndim=2] Eta_rte,
-					  np.ndarray[float, ndim=2] Theta_shp, np.ndarray[float, ndim=2] Theta_rte,
-					  np.ndarray[float, ndim=2] Eps_shp, np.ndarray[float, ndim=2] Eps_rte,
-					  np.ndarray[float, ndim=2] Kappa_shp, np.ndarray[float, ndim=2] Kappa_rte):
+					  real_t c, real_t e, np.ndarray[real_t, ndim=2] Omega_rte, np.ndarray[real_t, ndim=2] Eta_rte,
+					  np.ndarray[real_t, ndim=2] Theta_shp, np.ndarray[real_t, ndim=2] Theta_rte,
+					  np.ndarray[real_t, ndim=2] Eps_shp, np.ndarray[real_t, ndim=2] Eps_rte,
+					  np.ndarray[real_t, ndim=2] Kappa_shp, np.ndarray[real_t, ndim=2] Kappa_rte):
 	cdef ind_type nR = df.shape[0]
-	cdef np.ndarray[float, ndim=1] Rarr = df.Count.values
+	cdef np.ndarray[real_t, ndim=1] Rarr = df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_r = df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_i_r = df.ItemId.values
 
-	cdef np.ndarray[float, ndim=2] Ya = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Ya_const = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yb = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yb_const = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yc = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yc_const = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yd = np.empty((nR, k), dtype=ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Yd_const = np.empty((nR, k), dtype=ctypes.c_float)
+	cdef np.ndarray[real_t, ndim=2] Ya = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Ya_const = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yb = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yb_const = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yc = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yc_const = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yd = np.empty((nR, k), dtype=c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Yd_const = np.empty((nR, k), dtype=c_real_t)
 
 	cdef ind_type nQ = user_df.shape[0]
-	cdef np.ndarray[float, ndim=1] Qarr = user_df.Count.values
+	cdef np.ndarray[real_t, ndim=1] Qarr = user_df.Count.values
 	cdef np.ndarray[ind_type, ndim=1] ix_u_q = user_df.UserId.values
 	cdef np.ndarray[ind_type, ndim=1] ix_a_q = user_df.AttributeId.values
-	cdef np.ndarray[float, ndim=2] X = np.empty((nQ, k), dtype=ctypes.c_float)
+	cdef np.ndarray[real_t, ndim=2] X = np.empty((nQ, k), dtype=c_real_t)
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
-	cdef np.ndarray[float, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
-	cdef np.ndarray[float, ndim=2] Eta_prev = Eta_shp.copy()
-	cdef np.ndarray[float, ndim=2] Omega_shp = c * 2*rng.beta(20, 20, size=(nusers, k)).astype(ctypes.c_float)
+	cdef np.ndarray[real_t, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Eta_prev = Eta_shp.copy()
+	cdef np.ndarray[real_t, ndim=2] Omega_shp = c * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
 
 	## reusing the same functions for items with different parameters only
 	update_Z_const_pred(&Ya_const[0,0], &Omega_rte[0,0], &Theta_shp[0,0], &Theta_rte[0,0],
@@ -487,13 +473,13 @@ def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
-					 float* Beta_shp, float* Beta_rte, float* W,
+cdef void update_Z(real_t* Z, real_t* Theta_shp, real_t* Theta_rte,
+					 real_t* Beta_shp, real_t* Beta_rte, real_t* W,
 					 ind_type* ix_d, ind_type* ix_v, int sum_exp_trick,
 					 ind_type nW, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_z, st_ix_theta, st_ix_beta
-	cdef float sumrow, maxval
+	cdef real_t sumrow, maxval
 
 	if sum_exp_trick:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
@@ -501,13 +487,13 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 			st_ix_theta = ix_d[i] * K
 			st_ix_beta = ix_v[i] * K
 			sumrow = 0
-			maxval =  - HUGE_VALF
+			maxval =  - HUGE_VAL_T
 			for k in range(K):
 				Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
 				if Z[st_ix_z + k] > maxval:
 					maxval = Z[st_ix_z + k]
 			for k in range(K):
-				Z[st_ix_z + k] = expf(Z[st_ix_z + k] - maxval)
+				Z[st_ix_z + k] = exp_t(Z[st_ix_z + k] - maxval)
 				sumrow += Z[st_ix_z + k]
 			for k in range(K):
 				Z[st_ix_z + k] *= W[i] / sumrow
@@ -529,7 +515,7 @@ cdef void update_Z(float* Z, float* Theta_shp, float* Theta_rte,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float* Beta_rte,
+cdef void update_Z_const_pred(real_t* Z, real_t* Theta_rte, real_t* Beta_shp, real_t* Beta_rte,
 							  ind_type* ix_d, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_z, st_ix_beta
@@ -544,23 +530,23 @@ cdef void update_Z_const_pred(float* Z, float* Theta_rte, float* Beta_shp, float
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp, ind_type* ix_d,
+cdef void update_Z_var_pred(real_t* Z, real_t* Zconst, real_t* W, real_t* Theta_shp, ind_type* ix_d,
 							ind_type nW, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_z, st_ix_theta
-	cdef float sumrow, maxval
+	cdef real_t sumrow, maxval
 
 	for i in prange(nW, schedule='static', num_threads=nthreads):
 		st_ix_z = i * K
 		st_ix_theta = ix_d[i] * K
 		sumrow = 0
-		maxval = - HUGE_VALF
+		maxval = - HUGE_VAL_T
 		for k in range(K):
 			Z[st_ix_z + k] = Theta_shp[st_ix_theta + k] + Zconst[st_ix_z + k]
 			if Z[st_ix_z + k] > maxval:
 				maxval = Z[st_ix_z + k]
 		for k in range(K):
-			Z[st_ix_z + k] = expf(Z[st_ix_z + k] - maxval)
+			Z[st_ix_z + k] = exp_t(Z[st_ix_z + k] - maxval)
 			sumrow += Z[st_ix_z + k]
 		for k in range(K):
 			Z[st_ix_z + k] *= W[i] / sumrow
@@ -569,12 +555,12 @@ cdef void update_Z_var_pred(float* Z, float* Zconst, float* W, float* Theta_shp,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* Theta_shp, float* Theta_rte,
-				   float* Eps_shp, float* Eps_rte, float* R, ind_type* ix_u_r, ind_type* ix_d_r, int sum_exp_trick,
+cdef void update_Y(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte, real_t* Theta_shp, real_t* Theta_rte,
+				   real_t* Eps_shp, real_t* Eps_rte, real_t* R, ind_type* ix_u_r, ind_type* ix_d_r, int sum_exp_trick,
 				   ind_type nR, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
-	cdef float E_eta, sumrow, maxval
+	cdef real_t E_eta, sumrow, maxval
 
 	if sum_exp_trick:
 		for i in prange(nR, schedule='static', num_threads=nthreads):
@@ -582,7 +568,7 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 			st_ix_d = ix_d_r[i] * K
 			st_ix_y = i * K
 			sumrow = 0
-			maxval = - HUGE_VALF
+			maxval = - HUGE_VAL_T
 			for k in range(K):
 				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
 				ix_2 = st_ix_d + k
@@ -593,8 +579,8 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 				if Yb[st_ix_y + k] > maxval:
 					maxval = Yb[st_ix_y + k]
 			for k in range(K):
-				Ya[st_ix_y + k] = expf(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = expf(Yb[st_ix_y + k] - maxval)
+				Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
+				Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
 				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 			for k in range(K):
 				Ya[st_ix_y + k] *= R[i] / sumrow
@@ -622,13 +608,13 @@ cdef void update_Y(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte, float* 
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
-					   float* Theta_shp, float* Theta_rte, float* Eps_shp, float* Eps_rte,
-					   float* R, ind_type* ix_u_r, ind_type* docs_batch, ind_type* st_ix_doc,
+cdef void update_Y_csr(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte,
+					   real_t* Theta_shp, real_t* Theta_rte, real_t* Eps_shp, real_t* Eps_rte,
+					   real_t* R, ind_type* ix_u_r, ind_type* docs_batch, ind_type* st_ix_doc,
 					   ind_type ndocs, ind_type K, int nthreads) nogil:
 	cdef ind_type d, did, nobs, i, k
 	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
-	cdef float E_eta, sumrow, maxval
+	cdef real_t E_eta, sumrow, maxval
 
 	## comment: using schedule='dynamic' results in NA values
 	for d in prange(ndocs, schedule='static', num_threads=nthreads):
@@ -639,7 +625,7 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 			st_ix_u = ix_u_r[i + st_ix_doc[did]] * K
 			st_ix_y = i * K
 			sumrow = 0
-			maxval = - HUGE_VALF
+			maxval = - HUGE_VAL_T
 			for k in range(K):
 				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
 				ix_2 = st_ix_d + k
@@ -650,8 +636,8 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 				if Yb[st_ix_y + k] > maxval:
 					maxval = Yb[st_ix_y + k]
 			for k in range(K):
-				Ya[st_ix_y + k] = expf(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = expf(Yb[st_ix_y + k] - maxval)
+				Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
+				Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
 				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 			for k in range(K):
 				Ya[st_ix_y + k] *= R[i] / sumrow
@@ -661,7 +647,7 @@ cdef void update_Y_csr(float* Ya, float* Yb, float* Eta_shp, float* Eta_rte,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
+cdef void update_Theta_shp(real_t* Theta_shp, real_t* Z, real_t* Ya,
 						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
 						   int allow_inconsistent, int nthreads) nogil:
 	cdef ind_type i, j, k
@@ -693,7 +679,7 @@ cdef void update_Theta_shp(float* Theta_shp, float* Z, float* Ya,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Yb,
+cdef void update_Theta_shp_wuser(real_t* Theta_shp, real_t* Z, real_t* Ya, real_t* Yb,
 						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
 						   int allow_inconsistent, int nthreads) nogil:
 	cdef ind_type i, j, k
@@ -725,7 +711,7 @@ cdef void update_Theta_shp_wuser(float* Theta_shp, float* Z, float* Ya, float* Y
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, ind_type* ix_d,
+cdef void update_Theta_shp_pred(real_t* Theta_shp, real_t* Z, ind_type* ix_d,
 								ind_type nW, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_theta, st_ix_z
@@ -739,7 +725,7 @@ cdef void update_Theta_shp_pred(float* Theta_shp, float* Z, ind_type* ix_d,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Beta_shp(float* Beta_shp, float* Z, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
+cdef void update_Beta_shp(real_t* Beta_shp, real_t* Z, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_beta, st_ix_Z
 	for i in prange(nW, schedule='static', num_threads=nthreads):
@@ -752,7 +738,7 @@ cdef void update_Beta_shp(float* Beta_shp, float* Z, ind_type* ix_v, ind_type nW
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
+cdef void update_Eta_shp(real_t* Eta_shp, real_t* Ya, real_t* Yb,
 						 ind_type* ix_u, ind_type nR, ind_type K, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_y, st_ix_eta
@@ -766,7 +752,7 @@ cdef void update_Eta_shp(float* Eta_shp, float* Ya, float* Yb,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Eps_shp(float* Eps_shp, float* Yb, ind_type* ix_d, ind_type nR, ind_type K,
+cdef void update_Eps_shp(real_t* Eps_shp, real_t* Yb, ind_type* ix_d, ind_type nR, ind_type K,
 						 int allow_inconsistent, int nthreads) nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_eps, st_ix_y
@@ -788,36 +774,36 @@ cdef void update_Eps_shp(float* Eps_shp, float* Yb, ind_type* ix_d, ind_type nR,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void llk_plus_rmse(float* T, float* B, float* Y,
+cdef void llk_plus_rmse(real_t* T, real_t* B, real_t* Y,
 						ind_type* ix_u, ind_type* ix_i, ind_type nY, ind_type kszt,
 						long_double_type* out, int nthreads, int add_mse, int full_llk) nogil:
 	cdef ind_type i
 	cdef int one = 1
-	cdef float yhat
+	cdef real_t yhat
 	cdef long_double_type out1 = 0
 	cdef long_double_type out2 =  0
 	cdef int k = <int> kszt
 	if add_mse:
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
+				yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
 				out1 += Y[i]*log(yhat) - loggamma(Y[i] + 1)
 				out2 += (Y[i] - yhat)**2
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
-				out1 += Y[i]*logf(yhat)
+				yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
+				out1 += Y[i]*log_t(yhat)
 				out2 += (Y[i] - yhat)**2
 		out[0] = out1
 		out[1] = out2
 	else:
 		if full_llk:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - loggamma(Y[i] + 1)
+				out1 += Y[i]*log(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - loggamma(Y[i] + 1)
 			out[0] = out1
 		else:
 			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*logf(sdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
+				out1 += Y[i]*log_t(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
 			out[0] = out1
 	### Comment: adding += directly to *out triggers compiler optimizations that produce
 	### different (and wrong) results across different runs.

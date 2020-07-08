@@ -1,5 +1,6 @@
 global-include *.pyx
 global-include *.pxd
+global-include *.pxi
 global-exclude *.c
 global-exclude *.h
 global-exclude *.so
