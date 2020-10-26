@@ -783,7 +783,7 @@ class CTPF:
 			else:
 				self._unexpected_err_msg()
 
-			df[col2] = pd.Categorical(df[col2].values, curr_mapping2).codes
+			df[col2] = pd.Categorical(df[col2], curr_mapping2).codes
 			new_ids2 = df[col2].values == -1
 			if new_ids2.sum() > 0:
 				df = df.loc[~new_ids2].reset_index(drop=True)
@@ -811,9 +811,9 @@ class CTPF:
 				ttl2 = "counts_df"
 				df2 = self._check_df(df2, ttl=ttl2)
 
-				df2['ItemId'] = pd.Categorical(df2[col1].values, self.item_mapping_).codes
+				df2['ItemId'] = pd.Categorical(df2[col1], self.item_mapping_).codes
 				invalid_items = df2.ItemId == -1
-				if invalid_items.sum() > 0:
+				if invalid_items.any() > 0:
 					df2 = df2.loc[~invalid_items].reset_index(drop=True)
 					if df2.shape[0] > 0:
 						msg = "'" + ttl2 + "' has " + "item" + "s that were not present in the training data."
@@ -824,7 +824,7 @@ class CTPF:
 
 				new_ids11 = df2[col1].unique()
 				repeated = np.in1d(new_ids11, curr_mapping1)
-				if repeated.sum() > 0:
+				if repeated.any() > 0:
 					repeated = new_ids1[repeated]
 					df2 = df2.loc[~np.in1d(df2[col1].values, repeated)].reset_index(drop=True)
 					if df2.shape[0] > 0:
@@ -836,12 +836,12 @@ class CTPF:
 
 				new_ids1 = np.unique(np.r_[new_ids1, new_ids11])
 				new_mapping = np.r_[curr_mapping1, new_ids1]
-				df[col1] = pd.Categorical(df[col1].values, new_mapping).codes
-				df2[col1] = pd.Categorical(df2[col1].values, new_mapping).codes
+				df[col1] = pd.Categorical(df[col1], new_mapping).codes
+				df2[col1] = pd.Categorical(df2[col1], new_mapping).codes
 				df2 = self._cast_df(df2, ttl=ttl2)
 			else:
-				new_mapping = np.r_[curr_mapping1, new_ids1]
-				df[col1] = pd.Categorical(df[col1].values, new_mapping).codes
+				new_mapping = np.unique(np.r_[curr_mapping1, new_ids1])
+				df[col1] = pd.Categorical(df[col1], new_mapping).codes
 		
 		else:
 			new_mapping = None
