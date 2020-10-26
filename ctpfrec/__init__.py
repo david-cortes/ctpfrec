@@ -835,12 +835,14 @@ class CTPF:
 						raise ValueError("'" + ttl2 + "' doesn't contain any new " + subj1 + "s.")
 
 				new_ids1 = np.unique(np.r_[new_ids1, new_ids11])
+				new_ids1 = np.setdiff1d(new_ids1, curr_mapping1)
 				new_mapping = np.r_[curr_mapping1, new_ids1]
 				df[col1] = pd.Categorical(df[col1], new_mapping).codes
 				df2[col1] = pd.Categorical(df2[col1], new_mapping).codes
 				df2 = self._cast_df(df2, ttl=ttl2)
 			else:
-				new_mapping = np.unique(np.r_[curr_mapping1, new_ids1])
+				new_ids1 = np.setdiff1d(new_ids1, curr_mapping1)
+				new_mapping = np.r_[curr_mapping1, new_ids1]
 				df[col1] = pd.Categorical(df[col1], new_mapping).codes
 		
 		else:
