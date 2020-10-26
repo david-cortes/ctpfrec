@@ -785,7 +785,7 @@ class CTPF:
 
 			df[col2] = pd.Categorical(df[col2], curr_mapping2).codes
 			new_ids2 = df[col2].values == -1
-			if new_ids2.sum() > 0:
+			if new_ids2.any():
 				df = df.loc[~new_ids2].reset_index(drop=True)
 				if df.shape[0] > 0:
 					msg = "'" + ttl + "' has " + subj2 + "s that were not present in the training data."
@@ -796,9 +796,9 @@ class CTPF:
 
 			new_ids1 = df[col1].unique()
 			repeated = np.in1d(new_ids1, curr_mapping1)
-			if repeated.sum() > 0:
+			if repeated.any():
 				repeated = new_ids1[repeated]
-				df = df.loc[~np.in1d(df[col1].values, repeated)].reset_index(drop=True)
+				df = df.loc[~np.in1d(df[col1].to_numpy(), repeated)].reset_index(drop=True)
 				if df.shape[0] > 0:
 					msg = "'" + ttl + "' contains " + subj1 + "s that were already present in the training set."
 					msg += " These will be ignored."
