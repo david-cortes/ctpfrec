@@ -1245,7 +1245,7 @@ class CTPF:
 			if exclude_seen:
 				n_ext = int(np.min([n + self._n_seen_by_user[user], items_pool.shape[0]]))
 				rec = np.argpartition(allpreds, n_ext-1)[:n_ext]
-				seen = self.seen[self._st_ix_user[user] : self._st_ix_user[user] + self._n_seen_by_user[user]]
+				seen = self.seen[int(self._st_ix_user[user]) : int(self._st_ix_user[user] + self._n_seen_by_user[user])]
 				if self.reindex:
 					rec = np.setdiff1d(items_pool_reind[rec], seen)
 					allpreds = - user_vec.dot(self._M2[rec].T)
