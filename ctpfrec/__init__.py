@@ -861,10 +861,11 @@ class CTPF:
 		self.seen = self._counts_df[['UserId', 'ItemId']].copy()
 		self.seen.sort_values(['UserId', 'ItemId'], inplace=True)
 		self.seen.reset_index(drop = True, inplace = True)
-		self._n_seen_by_user = self.seen.groupby('UserId')['ItemId'].agg(lambda x: len(x)).values
+		self._n_seen_by_user = self.seen.groupby('UserId')['ItemId'].agg(lambda x: len(x)).values.astype(int)
 		self._st_ix_user = np.cumsum(self._n_seen_by_user)
 		self._st_ix_user = np.r_[[0], self._st_ix_user[:self._st_ix_user.shape[0]-1]]
-		self.seen = self.seen.ItemId.values
+		self._st_ix_user = self._st_ix_user.astype(int)
+		self.seen = self.seen.ItemId.values.astype(int)
 		return None
 
 	def _exclude_missing_from_index(self):
@@ -1194,7 +1195,7 @@ class CTPF:
 			if exclude_seen:
 				n_ext = int(np.min([n + self._n_seen_by_user[user], self._M2.shape[0]]))
 				rec = np.argpartition(allpreds, n_ext-1)[:n_ext]
-				seen = self.seen[int(self._st_ix_user[user]) : int(self._st_ix_user[user] + self._n_seen_by_user[user])]
+				seen = self.seen[self._st_ix_user[user] : self._st_ix_user[user] + self._n_seen_by_user[user]]
 				rec = np.setdiff1d(rec, seen)
 				rec = rec[np.argsort(allpreds[rec])[:n]]
 				if self.reindex:
@@ -1245,7 +1246,7 @@ class CTPF:
 			if exclude_seen:
 				n_ext = int(np.min([n + self._n_seen_by_user[user], items_pool.shape[0]]))
 				rec = np.argpartition(allpreds, n_ext-1)[:n_ext]
-				seen = self.seen[int(self._st_ix_user[user]) : int(self._st_ix_user[user] + self._n_seen_by_user[user])]
+				seen = self.seen[self._st_ix_user[user] : self._st_ix_user[user] + self._n_seen_by_user[user]]
 				if self.reindex:
 					rec = np.setdiff1d(items_pool_reind[rec], seen)
 					allpreds = - user_vec.dot(self._M2[rec].T)
@@ -1874,9 +1875,9 @@ class CTPF:
 		if self.keep_data and (counts_df is not None):
 			for u in range(int(new_max_id)):
 				items_this_user = counts_df.ItemId.values[counts_df.UserId == u]
-				self._n_seen_by_user = np.r_[self._n_seen_by_user, items_this_user.shape[0]]
-				self._st_ix_user = np.r_[self._st_ix_user, self.seen.shape[0]]
-				self.seen = np.r_[self.seen, items_this_user]
+				self._n_seen_by_user = np.r_[self._n_seen_by_user, items_this_user.shape[0]].astype(int)
+				self._st_ix_user = np.r_[self._st_ix_user, self.seen.shape[0]].astype(int)
+				self.seen = np.r_[self.seen, items_this_user].astype(int)
 		
 		## Adding the new IDs
 		if self.reindex:
