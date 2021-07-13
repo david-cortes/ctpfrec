@@ -340,7 +340,7 @@ def calc_item_factors(W, ind_type nitems, int maxiter, ind_type k, stop_thr, ran
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
 
-	cdef np.ndarray[real_t, ndim=2] Theta_shp = (a * 2*rng.beta(20, 20, size=(nitems, k))).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Theta_shp = a + rng.uniform(0, 0.01, size=(nitems, k)).astype(c_real_t)
 	cdef np.ndarray[real_t, ndim=2] Theta_prev = Theta_shp.copy()
 	cdef np.ndarray[real_t, ndim=2] Z = np.empty((nW, k), dtype=c_real_t)
 	cdef np.ndarray[real_t, ndim=2] Zconst = np.empty((nW, k), dtype=c_real_t)
@@ -375,7 +375,7 @@ def calc_user_factors(df, ind_type nusers, int maxiter, ind_type k, stop_thr, ra
 	cdef np.ndarray[real_t, ndim=2] Yb_const = np.empty((nR, k), dtype=c_real_t)
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
-	cdef np.ndarray[real_t, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Eta_shp = e  + rng.uniform(0, 0.01, size=(nusers, k)).astype(c_real_t)
 	cdef np.ndarray[real_t, ndim=2] Eta_prev = Eta_shp.copy()
 
 	## reusing the same functions for items with different parameters only
@@ -426,9 +426,9 @@ def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k
 	cdef np.ndarray[real_t, ndim=2] X = np.empty((nQ, k), dtype=c_real_t)
 
 	rng = np.random.default_rng(seed = random_seed if random_seed > 0 else None)
-	cdef np.ndarray[real_t, ndim=2] Eta_shp = e * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Eta_shp = e + rng.uniform(0, 0.01, size=(nusers, k)).astype(c_real_t)
 	cdef np.ndarray[real_t, ndim=2] Eta_prev = Eta_shp.copy()
-	cdef np.ndarray[real_t, ndim=2] Omega_shp = c * 2*rng.beta(20, 20, size=(nusers, k)).astype(c_real_t)
+	cdef np.ndarray[real_t, ndim=2] Omega_shp = c + rng.uniform(0, 0.01, size=(nusers, k)).astype(c_real_t)
 
 	## reusing the same functions for items with different parameters only
 	update_Z_const_pred(&Ya_const[0,0], &Omega_rte[0,0], &Theta_shp[0,0], &Theta_rte[0,0],

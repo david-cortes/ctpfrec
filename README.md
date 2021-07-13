@@ -140,8 +140,6 @@ If passing `reindex=True`, all user and item IDs that you pass to `.fit` will be
 
 For a more detailed example, see the IPython notebook [recommending products with RetailRocket's event logs](http://nbviewer.jupyter.org/github/david-cortes/ctpfrec/blob/master/example/ctpfrec_retailrocket.ipynb) illustrating its usage with the RetailRocket dataset consisting of activity logs (view, add-to-basket, purchase) and item descriptions.
 
-This package contains only functionality related to fitting this model. For general evaluation metrics for recommendations on implicit data see other packages such as [lightFM](https://github.com/lyst/lightfm).
-
 ## Documentation
 
 Documentation is available at readthedocs: [http://ctpfrec.readthedocs.io](http://ctpfrec.readthedocs.io/en/latest/)

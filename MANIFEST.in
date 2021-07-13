@@ -5,4 +5,5 @@ global-exclude *.c
 global-exclude *.h
 global-exclude *.so
 global-exclude *.dll
+global-exclude *.md
 exclude example/*

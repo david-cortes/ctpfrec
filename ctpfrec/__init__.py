@@ -888,6 +888,7 @@ class CTPF:
 	def _initalize_parameters(self):
 		## TODO: make this function more modular
 		## TODO: improve the way of adding random noise in the initialization
+		## Note: the initialization here corresponds to the one used in the original HPF code
 
 		rng = np.random.Generator(np.random.MT19937(seed = self.random_seed))
 
@@ -923,30 +924,43 @@ class CTPF:
 					words_include = self._words_df.WordId.loc[np.in1d(self._words_df.ItemId, items_words_df[items_intersect])].unique()
 					words_take = pd.Categorical(words_include, h.item_mapping_).codes
 
-				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Theta_shp[h.user_mapping_[items_take],:] = h.Theta[items_take].copy()
+				self.Theta_shp = self.c + rng.uniform(0, 0.01, size=(self.nitems, self.k))
+				if self.use_float:
+					self.Theta_shp = self.Theta_shp.astype(ctypes.c_float)
+				self.Theta_shp[h.user_mapping_[items_take],:] = h.Theta[items_take]
 
-				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Beta_shp[h.item_mapping_[words_take],:] = h.Beta[words_take].copy()
+				self.Beta_shp = self.a + rng.uniform(0, 0.01, size=(self.nwords, self.k))
+				if self.use_float:
+					self.Beta_shp = self.Beta_shp.astype(ctypes.c_float)
+				self.Beta_shp[h.item_mapping_[words_take],:] = h.Beta[words_take]
 				
 				self.Theta_rte = self.d + self.Beta_shp.sum(axis=0, keepdims=True)
 				self.Beta_rte = self.b + self.Theta_shp.sum(axis=0, keepdims=True)
 
 			if np.isnan(self.Theta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Theta, will use a random start.")
-				self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Theta_shp = self.c + rng.uniform(0, 0.01, size=(self.nitems, self.k))
+				self.Theta_rte = self.d + rng.uniform(0, 0.01, size=(1, self.k))
+				if self.use_float:
+					self.Theta_shp = self.Theta_shp.astype(ctypes.c_float)
+					self.Theta_rte = self.Theta_rte.astype(ctypes.c_float)
 			if np.isnan(self.Beta_shp).sum().sum() > 0:
 				warnings.warn("NaNs produced in initialization of Beta, will use a random start.")
-				self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Beta_shp = self.a + rng.uniform(0, 0.01, size=(self.nwords, self.k))
+				self.Beta_rte = self.b + rng.uniform(0, 0.01, size=(1, self.k))
+				if self.use_float:
+					self.Beta_shp = self.Beta_shp.astype(ctypes.c_float)
+					self.Beta_rte = self.Beta_rte.astype(ctypes.c_float)
 			if self.verbose:
 				print("**********************************")
 				print("")
 
 			if self._has_user_df:
-				self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Omega_shp = self.e + rng.uniform(0, 0.01, size=(self.nusers, self.k))
+				self.Omega_rte = self.f + rng.uniform(0, 0.01, size=(1, self.k))
+				if self.use_float:
+					self.Omega_shp = self.Omega_shp.astype(ctypes.c_float)
+					self.Omega_rte = self.Omega_rte.astype(ctypes.c_float)
 				if self.verbose:
 					print("Initializing Kappa through HPF...")
 					print("")
@@ -971,7 +985,9 @@ class CTPF:
 						attr_include = self._user_df.AttributeId.loc[np.in1d(self._user_df.UserId, users_user_df[users_intersect])].unique()
 						attr_take = pd.Categorical(attr_include, h.item_mapping_).codes
 
-					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+					self.Kappa_shp = self.a + rng.uniform(0, 0.01, size=(self.nuserattr, self.k))
+					if self.use_float:
+						self.Kappa_shp = self.Kappa_shp.astype(ctypes.c_float)
 					self.Kappa_shp[h.item_mapping_[attr_take],:] = h.Beta[attr_take].copy()
 					self.Kappa_rte = self.b + h.Theta.sum(axis=0, keepdims=True)
 					del h
@@ -979,8 +995,11 @@ class CTPF:
 
 				if np.isnan(self.Kappa_shp).sum().sum() > 0:
 					warnings.warn("NaNs produced in initialization of Kappa, will use a random start.")
-					self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-					self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+					self.Kappa_shp = self.a + rng.uniform(0, 0.01, size=(self.nuserattr, self.k))
+					self.Kappa_rte = self.b + rng.uniform(0, 0.01, size=(1, self.k))
+					if self.use_float:
+						self.Kappa_shp = self.Kappa_shp.astype(ctypes.c_float)
+						self.Kappa_rte = self.Kappa_rte.astype(ctypes.c_float)
 				if self.verbose:
 					print("**********************************")
 					print("")
@@ -988,24 +1007,40 @@ class CTPF:
 				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 		else:
-			self.Beta_shp = (self.a * 2*rng.beta(20, 20, size=(self.nwords, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-			self.Theta_shp = (self.c * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-			self.Beta_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-			self.Theta_rte = (self.d * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Beta_shp = self.a + rng.uniform(0, 0.01, size=(self.nwords, self.k))
+			self.Theta_shp = self.c + rng.uniform(0, 0.01, size=(self.nitems, self.k))
+			self.Beta_rte = self.b + rng.uniform(0, 0.01, size=(1, self.k))
+			self.Theta_rte = self.d + rng.uniform(0, 0.01, size=(1, self.k))
+			if self.use_float:
+				self.Beta_shp = self.Beta_shp.astype(ctypes.c_float)
+				self.Theta_shp = self.Theta_shp.astype(ctypes.c_float)
+				self.Beta_rte = self.Beta_rte.astype(ctypes.c_float)
+				self.Theta_rte = self.Theta_rte.astype(ctypes.c_float)
 			if self._has_user_df:
-				self.Kappa_shp = (self.a * 2*rng.beta(20, 20, size=(self.nuserattr, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-				self.Kappa_rte = (self.b * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+				self.Kappa_shp = self.a + rng.uniform(0, 0.01, size=(self.nuserattr, self.k))
+				self.Kappa_rte = self.b + rng.uniform(0, 0.01, size=(1, self.k))
+				if self.use_float:
+					self.Kappa_shp = self.Kappa_shp.astype(ctypes.c_float)
+					self.Kappa_rte = self.Kappa_rte.astype(ctypes.c_float)
 			else:
 				self.Kappa_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 				self.Kappa_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 		
-		self.Eta_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-		self.Epsilon_shp = (self.g * 2*rng.beta(20, 20, size=(self.nitems, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-		self.Eta_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-		self.Epsilon_rte = (self.h * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+		self.Eta_shp = self.e + rng.uniform(0, 0.01, size=(self.nusers, self.k))
+		self.Epsilon_shp = self.g + rng.uniform(0, 0.01, size=(self.nitems, self.k))
+		self.Eta_rte = self.f + rng.uniform(0, 0.01, size=(1, self.k))
+		self.Epsilon_rte = self.h + rng.uniform(0, 0.01, size=(1, self.k))
+		if self.use_float:
+			self.Eta_shp = self.Eta_shp.astype(ctypes.c_float)
+			self.Epsilon_shp = self.Epsilon_shp.astype(ctypes.c_float)
+			self.Eta_rte = self.Eta_rte.astype(ctypes.c_float)
+			self.Epsilon_rte = self.Epsilon_rte.astype(ctypes.c_float)
 		if self._has_user_df:
-			self.Omega_shp = (self.e * 2*rng.beta(20, 20, size=(self.nusers, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
-			self.Omega_rte = (self.f * 2*rng.beta(20, 20, size=(1, self.k))).astype(ctypes.c_float if self.use_float else ctypes.c_double)
+			self.Omega_shp = self.e + rng.uniform(0, 0.01, size=(self.nusers, self.k))
+			self.Omega_rte = self.f + rng.uniform(0, 0.01, size=(1, self.k))
+			if self.use_float:
+				self.Omega_shp = self.Omega_shp.astype(ctypes.c_float)
+				self.Omega_rte = self.Omega_rte.astype(ctypes.c_float)
 		else:
 			self.Omega_shp = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
 			self.Omega_rte = np.empty((0,0), dtype=ctypes.c_float if self.use_float else ctypes.c_double)
