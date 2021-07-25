@@ -18,7 +18,7 @@ class build_ext_subclass( build_ext ):
     def build_extensions(self):
         if self.compiler.compiler_type == 'msvc':
             for e in self.extensions:
-                e.extra_compile_args = ['/openmp', '/O2']
+                e.extra_compile_args += ['/openmp', '/O2']
         else:
             self.add_march_native()
             self.add_openmp_linkage()
@@ -27,7 +27,7 @@ class build_ext_subclass( build_ext ):
                 # e.extra_compile_args = ['-fopenmp', '-O2', '-march=native', '-std=c99']
                 # e.extra_link_args = ['-fopenmp']
                 ### Comment: -Ofast gives worse speed than -O2 or -O3
-                e.extra_compile_args = ['-O2', '-std=c99']
+                e.extra_compile_args += ['-O2', '-std=c99']
 
         build_ext.build_extensions(self)
 
@@ -106,7 +106,7 @@ setup(
      'cython',
      'hpfrec>=0.2.5'
 ],
-    version = '0.1.15',
+    version = '0.1.15-1',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
