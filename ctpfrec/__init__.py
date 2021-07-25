@@ -1,6 +1,6 @@
 import pandas as pd, numpy as np
 import multiprocessing, os, warnings
-from . import cy_double, cy_float
+from . import cy_double, cy_float, _check_openmp
 import ctypes, types, inspect
 from hpfrec import HPF, cython_loops_float, cython_loops_double
 pd.options.mode.chained_assignment = None
@@ -301,6 +301,13 @@ class CTPF:
 			ncores = multiprocessing.cpu_count()
 		assert ncores>0
 		assert isinstance(ncores, int)
+
+		if (ncores > 1) and not (_check_openmp.get()):
+			msg_omp  = "Attempting to use more than 1 thread, but "
+			msg_omp += "package was built without multi-threading "
+			msg_omp += "support - see the project's GitHub page for "
+			msg_omp += "more information."
+			warnings.warn(msg_omp)
 
 		if random_seed is not None:
 			assert isinstance(random_seed, int)

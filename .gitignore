@@ -5,6 +5,11 @@ __pycache__/
 *.c
 *.so
 *.dll
+*.dylib
+*.exe
+*.out
+*.o
+*.a
 
 # dist files
 dist/
