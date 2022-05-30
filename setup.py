@@ -1,7 +1,7 @@
 try:
   from setuptools import setup
   from setuptools import Extension
-except:
+except ImportError:
   from distutils.core import setup
   from distutils.extension import Extension
 from Cython.Distutils import build_ext
@@ -117,7 +117,7 @@ class build_ext_subclass( build_ext ):
                     cmd = list(self.compiler.compiler)
                 else:
                     cmd = self.compiler.compiler
-            except:
+            except Exception:
                 cmd = self.compiler.compiler
             val_good = subprocess.call(cmd + [fname])
             if with_omp:
@@ -126,13 +126,13 @@ class build_ext_subclass( build_ext ):
             try:
                 val = subprocess.call(cmd + comm + [fname])
                 is_supported = (val == val_good)
-            except:
+            except Exception:
                 is_supported = False
-        except:
+        except Exception:
             pass
         try:
             os.remove(fname)
-        except:
+        except Exception:
             pass
         return is_supported
 
@@ -146,7 +146,7 @@ setup(
      'cython',
      'hpfrec>=0.2.5'
 ],
-    version = '0.1.15-5',
+    version = '0.1.15-6',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

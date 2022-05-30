@@ -3,6 +3,7 @@ import multiprocessing, os, warnings
 from . import cy_double, cy_float, _check_openmp
 import ctypes, types, inspect
 from hpfrec import HPF, cython_loops_float, cython_loops_double
+### TODO: don't do this, use loc/iloc and make copies if needed
 pd.options.mode.chained_assignment = None
 
 
@@ -1333,7 +1334,7 @@ class CTPF:
 			if self.produce_dicts:
 				try:
 					user = self.user_dict_[user]
-				except:
+				except Exception:
 					raise ValueError("Can only predict for users who were in the training set.")
 			else:
 				user = pd.Categorical(np.array([user]), self.user_mapping_).codes[0]
@@ -1430,7 +1431,7 @@ class CTPF:
 					if self.user_dict_ is not None:
 						try:
 							user = self.user_dict_[user]
-						except:
+						except Exception:
 							user = -1
 					else:
 						user = pd.Categorical(user, self.user_mapping_).codes[0]
@@ -1439,7 +1440,7 @@ class CTPF:
 				if self.user_dict_ is not None:
 					try:
 						user = self.user_dict_[user]
-					except:
+					except Exception:
 						user = -1
 				else:
 					user = pd.Categorical(np.array([user]), self.user_mapping_).codes[0]
@@ -1456,7 +1457,7 @@ class CTPF:
 					if self.item_dict_ is not None:
 						try:
 							item = self.item_dict_[item]
-						except:
+						except Exception:
 							item = -1
 					else:
 						item = pd.Categorical(item, self.item_mapping_).codes[0]
@@ -1465,7 +1466,7 @@ class CTPF:
 				if self.item_dict_ is not None:
 					try:
 						item = self.item_dict_[item]
-					except:
+					except Exception:
 						item = -1
 				else:
 					item = pd.Categorical(np.array([item]), self.item_mapping_).codes[0]
