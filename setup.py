@@ -162,6 +162,8 @@ class build_ext_subclass( build_ext ):
                 e.extra_link_args.append(arg_omp5)
         else:
             set_omp_false()
+            for e in self.extensions:
+                e.sources = [re.sub(r"^(.*)return1\.pyx$", r"\1return0.pyx", s) for s in e.sources]
 
     def test_supports_compile_arg(self, comm, with_omp=False):
         is_supported = False
@@ -207,7 +209,7 @@ setup(
      'cython',
      'hpfrec>=0.2.5'
 ],
-    version = '0.1.15-7',
+    version = '0.1.15-8',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/ctpfrec',
