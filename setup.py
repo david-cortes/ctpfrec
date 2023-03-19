@@ -111,7 +111,7 @@ class build_ext_subclass( build_ext ):
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"
         arg_omp2 = "-fopenmp=libomp"
-        args_omp2 = ["-fopenmp=libomp", "-lomp"]
+        args_omp3 = ["-fopenmp=libomp", "-lomp"]
         arg_omp4 = "-qopenmp"
         arg_omp5 = "-xopenmp"
         is_apple = sys.platform[:3].lower() == "dar"
@@ -148,7 +148,7 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args += ["-fopenmp=libomp"]
                 e.extra_link_args += ["-fopenmp"]
-        elif self.test_supports_compile_arg(arg_omp3, with_omp=True):
+        elif self.test_supports_compile_arg(args_omp3, with_omp=True):
             for e in self.extensions:
                 e.extra_compile_args += ["-fopenmp=libomp"]
                 e.extra_link_args += ["-fopenmp", "-lomp"]
@@ -209,7 +209,7 @@ setup(
      'cython',
      'hpfrec>=0.2.5'
 ],
-    version = '0.1.15-8',
+    version = '0.1.15-9',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/ctpfrec',
