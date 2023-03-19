@@ -1,3 +1,4 @@
+#cython: language_level=3
 from scipy.linalg.cython_blas cimport ddot
 from hpfrec import cython_loops_double as cython_loops
 import ctypes
