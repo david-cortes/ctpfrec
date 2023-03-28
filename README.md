@@ -55,6 +55,8 @@ A huge drawback of this model compared to LDA is that, as the matrices are non-n
 
 ## Installation
 
+**Note:** requires a C compiler configured for Python. See [this guide](https://github.com/david-cortes/installing-optimized-libraries) for instructions.
+
 Package is available on PyPI, can be installed with
 
 ```pip install ctpfrec```
@@ -84,9 +86,6 @@ export CFLAGS="-march=x86-64"
 pip install ctpfrec
 ```
 ** *
-
-As it contains Cython code, it requires a C compiler. In Windows, this usually means it requires a Visual Studio Build Tools installation (with MSVC140 component for `conda`) (or MinGW + GCC), and if using Anaconda, might also require configuring it to use said Visual Studio instead of MinGW, otherwise the installation from `pip` might fail. For more details see this guide:
-[Cython Extensions On Windows](https://github.com/cython/cython/wiki/CythonExtensionsOnWindows)
 
 
 ## Sample usage
