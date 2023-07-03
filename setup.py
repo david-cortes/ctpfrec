@@ -210,9 +210,9 @@ setup(
      'numpy>=1.17',
      'scipy',
      'cython',
-     'hpfrec>=0.2.5'
+     'hpfrec>=0.2.6'
 ],
-    version = '0.1.15-11',
+    version = '0.1.16',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/ctpfrec',

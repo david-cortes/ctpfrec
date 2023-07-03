@@ -1,9 +1,10 @@
 import pandas as pd, numpy as np
+from scipy.sparse import issparse
 import multiprocessing, os, warnings
 from . import cy_double, cy_float, _check_openmp
 import ctypes, types, inspect
 from hpfrec import HPF, cython_loops_float, cython_loops_double
-### TODO: don't do this, use loc/iloc and make copies if needed
+### TODO: get rid of this, use loc/iloc and make copies if needed
 pd.options.mode.chained_assignment = None
 
 
@@ -436,9 +437,9 @@ class CTPF:
 			self._counts_df['UserId'], self.user_mapping_ = pd.factorize(self._counts_df.UserId)
 			self._counts_df['ItemId'], self.item_mapping_ = pd.factorize(self._counts_df.ItemId)
 			### https://github.com/pandas-dev/pandas/issues/30618
-			if self.user_mapping_.__class__.__name__ == "CategoricalIndex":
+			if not isinstance(self.user_mapping_, np.ndarray):
 				self.user_mapping_ = self.user_mapping_.to_numpy()
-			if self.item_mapping_.__class__.__name__ == "CategoricalIndex":
+			if not isinstance(self.item_mapping_, np.ndarray):
 				self.item_mapping_ = self.item_mapping_.to_numpy()
 			self.nusers = self.user_mapping_.shape[0]
 			self.nitems = self.item_mapping_.shape[0]
@@ -446,7 +447,7 @@ class CTPF:
 			self._need_filter_beta = False
 			self._need_filter_kappa = False
 
-			words_df_id_orig = self._words_df.ItemId.values.copy()
+			words_df_id_orig = self._words_df.ItemId.to_numpy().copy()
 			cat_ids = pd.Categorical(self._words_df.ItemId, self.item_mapping_)
 			ids_new = cat_ids.isnull()
 			if ids_new.sum() > 0:
@@ -484,7 +485,7 @@ class CTPF:
 							self._need_filter_beta = True
 							self._take_ix_words = words_in.shape[0]
 							self.word_mapping_ = np.r_[words_in, words_out[words_exclude]]
-							self._words_df['WordId'] = pd.Categorical(self._words_df.WordId.values, self.word_mapping_).codes
+							self._words_df['WordId'] = pd.Categorical(self._words_df.WordId.to_numpy(), self.word_mapping_).codes
 							self.word_mapping_ = self.word_mapping_[:self._take_ix_words]
 
 
@@ -495,12 +496,12 @@ class CTPF:
 			if not self._need_filter_beta:
 				self._words_df['WordId'], self.word_mapping_ = pd.factorize(self._words_df.WordId)
 				### https://github.com/pandas-dev/pandas/issues/30618
-				if self.word_mapping_.__class__.__name__ == "CategoricalIndex":
+				if not isinstance(self.word_mapping_, np.ndarray):
 					self.word_mapping_ = self.word_mapping_.to_numpy()
 			self.nwords = self.word_mapping_.shape[0]
 
 			if user_df is not None:
-				user_df_id_orig = self._user_df.UserId.values.copy()
+				user_df_id_orig = self._user_df.UserId.to_numpy().copy()
 				cat_ids = pd.Categorical(self._user_df.UserId, self.user_mapping_)
 				ids_new = cat_ids.isnull()
 				if ids_new.sum() > 0:
@@ -547,7 +548,7 @@ class CTPF:
 				if not self._need_filter_kappa:
 					self._user_df['AttributeId'], self.user_attr_mapping_ = pd.factorize(self._user_df.AttributeId)
 					### https://github.com/pandas-dev/pandas/issues/30618
-				if self.user_attr_mapping_.__class__.__name__ == "CategoricalIndex":
+				if not isinstance(self.user_attr_mapping_, np.ndarray):
 					self.user_attr_mapping_ = self.user_attr_mapping_.to_numpy()
 				self.nuserattr = self.user_attr_mapping_.shape[0]
 
@@ -649,7 +650,7 @@ class CTPF:
 			thr = 0
 		else:
 			thr = 0.9
-		obs_zero = df.Count.values <= thr
+		obs_zero = df.Count.to_numpy() <= thr
 		if obs_zero.sum() > 0:
 			msg = "'" + ttl + "' contains observations with a count value less than one, these will be ignored."
 			msg += " Any " + subj + " associated exclusively with zero-value observations will be excluded."
@@ -682,7 +683,7 @@ class CTPF:
 				else:
 					self._unexpected_err_msg()
 			df = pd.merge(df, sum_by_item.to_frame().reset_index(drop=False).rename(columns={'Count':'SumCounts'}))
-			df['Count'] = target_factor * df.Count.values / df.SumCounts.values
+			df['Count'] = target_factor * df.Count.to_numpy() / df.SumCounts.to_numpy()
 			df = df[[col1, col2, 'Count']]
 		return df
 		# take_obs = df.Count.values >= 0.85
@@ -717,8 +718,8 @@ class CTPF:
 	def _cast_df(self, df, ttl):
 		cy = cy_float if self.use_float else cy_double
 		col1, col2, subj = self._cols_from_ttl(ttl)
-		df[col1] = df[col1].values.astype(cy.obj_ind_type)
-		df[col2] = df[col2].values.astype(cy.obj_ind_type)
+		df[col1] = df[col1].to_numpy().astype(cy.obj_ind_type)
+		df[col2] = df[col2].to_numpy().astype(cy.obj_ind_type)
 		df['Count'] = df.Count.astype(ctypes.c_float if self.use_float else ctypes.c_double if self.use_float else ctypes.c_double)
 		return df
 
@@ -731,14 +732,14 @@ class CTPF:
 			df = pd.DataFrame(df[:, :3])
 			df.columns = [col1, col2, "Count"]
 			
-		elif df.__class__.__name__ == 'DataFrame':
+		elif isinstance(df, pd.DataFrame):
 			assert df.shape[0] > 0
-			assert col1 in df.columns.values
-			assert col2 in df.columns.values
-			assert 'Count' in df.columns.values
+			assert col1 in df.columns.to_numpy()
+			assert col2 in df.columns.to_numpy()
+			assert 'Count' in df.columns.to_numpy()
 			df = df[[col1, col2, 'Count']]
 
-		elif df.__class__.__name__ == 'coo_matrix':
+		elif issparse(df) and (df.format == "coo"):
 			if ttl == "counts_df":
 				df = pd.DataFrame({
 					'UserId' : df.row,
@@ -792,7 +793,7 @@ class CTPF:
 				self._unexpected_err_msg()
 
 			df[col2] = pd.Categorical(df[col2], curr_mapping2).codes
-			new_ids2 = df[col2].values == -1
+			new_ids2 = df[col2].to_numpy() == -1
 			if new_ids2.any():
 				df = df.loc[~new_ids2].reset_index(drop=True)
 				if df.shape[0] > 0:
@@ -834,7 +835,7 @@ class CTPF:
 				repeated = np.in1d(new_ids11, curr_mapping1)
 				if repeated.any() > 0:
 					repeated = new_ids1[repeated]
-					df2 = df2.loc[~np.in1d(df2[col1].values, repeated)].reset_index(drop=True)
+					df2 = df2.loc[~np.in1d(df2[col1].to_numpy(), repeated)].reset_index(drop=True)
 					if df2.shape[0] > 0:
 						msg = "'" + ttl2 + "' contains " + subj1 + "s that were already present in the training set."
 						msg += " These will be ignored."
@@ -869,11 +870,11 @@ class CTPF:
 		self.seen = self._counts_df[['UserId', 'ItemId']].copy()
 		self.seen.sort_values(['UserId', 'ItemId'], inplace=True)
 		self.seen.reset_index(drop = True, inplace = True)
-		self._n_seen_by_user = self.seen.groupby('UserId')['ItemId'].agg(lambda x: len(x)).values.astype(int)
+		self._n_seen_by_user = self.seen.groupby('UserId')['ItemId'].agg(lambda x: len(x)).to_numpy().astype(int)
 		self._st_ix_user = np.cumsum(self._n_seen_by_user)
 		self._st_ix_user = np.r_[[0], self._st_ix_user[:self._st_ix_user.shape[0]-1]]
 		self._st_ix_user = self._st_ix_user.astype(int)
-		self.seen = self.seen.ItemId.values.astype(int)
+		self.seen = self.seen.ItemId.to_numpy().astype(int)
 		return None
 
 	def _exclude_missing_from_index(self):
@@ -1142,15 +1143,11 @@ class CTPF:
 				raise ValueError("If 'stop_crit' is set to 'val-llk', must provide a validation set.")
 
 		## another basic check
-		if "coo_matrix" in [counts_df.__class__.__name__,
-							words_df.__class__.__name__,
-							user_df.__class__.__name__]:
+		if (issparse(counts_df) and (counts_df.format == "coo")) or (issparse(words_df) and (words_df.format == "coo")) or (issparse(user_df) and (user_df.format == "coo")):
 			has_coo = True
 		else:
 			has_coo = False
-		if "DataFrame" in [counts_df.__class__.__name__,
-							words_df.__class__.__name__,
-							user_df.__class__.__name__]:
+		if isinstance(counts_df, pd.DataFrame) or isinstance(words_df, pd.DataFrame) or isinstance(user_df, pd.DataFrame):
 			has_df = True
 		else:
 			has_df = False
@@ -1258,8 +1255,8 @@ class CTPF:
 		else:
 			if isinstance(items_pool, list) or isinstance(items_pool, tuple):
 				items_pool = np.array(items_pool)
-			if items_pool.__class__.__name__=='Series':
-				items_pool = items_pool.values
+			if isinstance(items_pool, pd.Series):
+				items_pool = items_pool.to_numpy()
 			if isinstance(items_pool, np.ndarray):  
 				if len(items_pool.shape) > 1:
 					items_pool = items_pool.reshape(-1)
@@ -1377,7 +1374,7 @@ class CTPF:
 			msg += " when fitting a model with user attributes."
 			raise ValueError(msg)
 
-		assert user_df.__class__.__name__ == "DataFrame"
+		assert isinstance(user_df, pd.DataFrame)
 		user_df['UserId'] = self.nusers
 
 		user_vec, temp = self._predict_user_factors(
@@ -1415,10 +1412,10 @@ class CTPF:
 			user = np.array(user)
 		if isinstance(item, list) or isinstance(item, tuple):
 			item = np.array(item)
-		if user.__class__.__name__=='Series':
-			user = user.values
-		if item.__class__.__name__=='Series':
-			item = item.values
+		if isinstance(user, pd.Series):
+			user = user.to_numpy()
+		if isinstance(item, pd.Series):
+			item = item.to_numpy()
 			
 		if isinstance(user, np.ndarray):
 			if len(user.shape) > 1:
@@ -1917,7 +1914,7 @@ class CTPF:
 		## updating the list of seen items for these users
 		if self.keep_data and (counts_df is not None):
 			for u in range(int(new_max_id)):
-				items_this_user = counts_df.ItemId.values[counts_df.UserId == u]
+				items_this_user = counts_df.ItemId.to_numpy()[counts_df.UserId == u]
 				self._n_seen_by_user = np.r_[self._n_seen_by_user, items_this_user.shape[0]].astype(int)
 				self._st_ix_user = np.r_[self._st_ix_user, self.seen.shape[0]].astype(int)
 				self.seen = np.r_[self.seen, items_this_user].astype(int)
@@ -1966,9 +1963,9 @@ class CTPF:
 		assert self.is_fitted
 		HPF._process_valset(self, counts_df, valset=False)
 		cython_loops = cython_loops_float if self.use_float else cython_loops_double
-		out = {'llk': cython_loops.calc_llk(self.val_set.Count.values,
-											self.val_set.UserId.values,
-											self.val_set.ItemId.values,
+		out = {'llk': cython_loops.calc_llk(self.val_set.Count.to_numpy(),
+											self.val_set.UserId.to_numpy(),
+											self.val_set.ItemId.to_numpy(),
 											self._M1,
 											self._M2,
 											cython_loops.cast_int(self.k),

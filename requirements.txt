@@ -1,5 +1,5 @@
 pandas
 numpy>=1.18
-scipy 
+scipy>=1.11.1
 cython
 hpfrec>=0.2.3
