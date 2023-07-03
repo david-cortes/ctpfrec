@@ -55,6 +55,11 @@ html_static_path = ['_static']
 
 html_theme_options = {
     'collapse_navigation': False,
-    'sticky_navigation': False,
+    'sticky_navigation': True,
     'navigation_depth': 4,
 }
+
+pygments_style = 'sphinx'
+import sphinx_rtd_theme
+html_theme = 'sphinx_rtd_theme'
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
