@@ -18,8 +18,10 @@ Package is available on PyPI, can be installed with
 
     pip install ctpfrec
 
+Documentation
+=================================
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
 .. automodule:: ctpfrec
