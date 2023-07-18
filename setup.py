@@ -7,6 +7,9 @@ except ImportError:
 from Cython.Distutils import build_ext
 import numpy
 import sys, os, subprocess, warnings, re
+import platform
+
+IS_WINDOWS = platform.system() == "Windows"
 
 found_omp = True
 def set_omp_false():
@@ -205,36 +208,37 @@ class build_ext_subclass( build_ext ):
 setup(
     name = 'ctpfrec',
     packages = ['ctpfrec'],
-    install_requires=[
-     'pandas>=0.24',
-     'numpy>=1.17',
-     'scipy',
-     'cython',
-     'hpfrec>=0.2.6'
-],
-    version = '0.1.16',
+    version = '0.1.17',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/ctpfrec',
     keywords = ['collaborative', 'topic', 'modeling', 'poisson', 'probabilistic', 'non-negative', 'factorization',
                             'variational inference', 'collaborative filtering', 'cold-start'],
-    classifiers = [],
-
     cmdclass = {'build_ext': build_ext_subclass},
     ext_modules = [
         Extension(
             "ctpfrec.cy_double",
-            sources=["ctpfrec/cy_double.pyx"],
+            sources=[
+                "ctpfrec/cy_double_nonwindows.pyx"
+                if not IS_WINDOWS
+                else
+                "ctpfrec/cy_double_windows.pyx"
+            ],
             include_dirs=[numpy.get_include()]
         ),
         Extension(
             "ctpfrec.cy_float",
-            sources=["ctpfrec/cy_float.pyx"],
+            sources=[
+                "ctpfrec/cy_float_nonwindows.pyx"
+                if not IS_WINDOWS
+                else
+                "ctpfrec/cy_float_windows.pyx"
+            ],
             include_dirs=[numpy.get_include()]
         ),
         Extension(
             "ctpfrec._check_openmp",
-            sources=["ctpfrec/return1.pyx"],
+            sources=["ctpfrec/return1.pyx" if found_omp else "ctpfrec/return0.pyx"],
             include_dirs=[numpy.get_include()]
         )
     ]
