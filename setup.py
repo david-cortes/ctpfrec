@@ -208,7 +208,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name = 'ctpfrec',
     packages = ['ctpfrec'],
-    version = '0.1.17',
+    version = '0.1.18',
     description = 'Collaborative topic Poisson factorization for recommender systems',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/ctpfrec',

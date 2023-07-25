@@ -3,7 +3,13 @@ from scipy.linalg.cython_blas cimport ddot
 from hpfrec import cython_loops_double as cython_loops
 import ctypes
 
-from libc.math cimport log, exp, HUGE_VAL, HUGE_VALL
+# TODO: once issues with newer cython are sorted out, should cimport as below:
+# from libc.math cimport log, exp, HUGE_VAL, HUGE_VALL
+cdef extern from "<math.h>":
+    double log(double x) nogil
+    double exp(double x) nogil
+    const double HUGE_VAL
+    const long double HUGE_VALL
 
 c_real_t = ctypes.c_double
 ctypedef double real_t
