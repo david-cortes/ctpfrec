@@ -7,4 +7,4 @@ ctypedef long double long_double_type
 obj_long_double_type = ctypes.c_longdouble
 LD_HUGE_VAL = HUGE_VALL
 
-include "cy_double.pxi"
+include "cy_float.pxi"
