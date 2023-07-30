@@ -461,20 +461,76 @@ def calc_user_factors_full(df, user_df, ind_type nusers, int maxiter, ind_type k
 cdef void update_Z(real_t* Z, real_t* Theta_shp, real_t* Theta_rte,
 					 real_t* Beta_shp, real_t* Beta_rte, real_t* W,
 					 ind_type* ix_d, ind_type* ix_v, int sum_exp_trick,
-					 ind_type nW, ind_type K, int nthreads) nogil:
+					 ind_type nW, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_z, st_ix_theta, st_ix_beta
 	cdef real_t sumrow, maxval
 
-	if sum_exp_trick:
+	with nogil:
+		if sum_exp_trick:
+			for i in prange(nW, schedule='static', num_threads=nthreads):
+				st_ix_z = i * K
+				st_ix_theta = ix_d[i] * K
+				st_ix_beta = ix_v[i] * K
+				sumrow = 0
+				maxval =  - HUGE_VAL_T
+				for k in range(K):
+					Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
+					if Z[st_ix_z + k] > maxval:
+						maxval = Z[st_ix_z + k]
+				for k in range(K):
+					Z[st_ix_z + k] = exp_t(Z[st_ix_z + k] - maxval)
+					sumrow += Z[st_ix_z + k]
+				for k in range(K):
+					Z[st_ix_z + k] *= W[i] / sumrow
+
+		else:
+			for i in prange(nW, schedule='static', num_threads=nthreads):
+				st_ix_z = i * K
+				st_ix_theta = ix_d[i] * K
+				st_ix_beta = ix_v[i] * K
+				sumrow = 0
+				for k in range(K):
+					Z[st_ix_z + k] = exp(psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k]))
+					sumrow += Z[st_ix_z + k]
+				for k in range(K):
+					Z[st_ix_z + k] *= W[i] / sumrow
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void update_Z_const_pred(real_t* Z, real_t* Theta_rte, real_t* Beta_shp, real_t* Beta_rte,
+							  ind_type* ix_d, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) noexcept nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_z, st_ix_beta
+
+	with nogil:
+		for i in prange(nW, schedule='static', num_threads=nthreads):
+			st_ix_z = i * K
+			st_ix_beta = ix_v[i] * K
+			for k in range(K):
+				Z[st_ix_z + k] = - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef void update_Z_var_pred(real_t* Z, real_t* Zconst, real_t* W, real_t* Theta_shp, ind_type* ix_d,
+							ind_type nW, ind_type K, int nthreads) noexcept nogil:
+	cdef ind_type i, k
+	cdef ind_type st_ix_z, st_ix_theta
+	cdef real_t sumrow, maxval
+
+	with nogil:
 		for i in prange(nW, schedule='static', num_threads=nthreads):
 			st_ix_z = i * K
 			st_ix_theta = ix_d[i] * K
-			st_ix_beta = ix_v[i] * K
 			sumrow = 0
-			maxval =  - HUGE_VAL_T
+			maxval = - HUGE_VAL_T
 			for k in range(K):
-				Z[st_ix_z + k] = psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
+				Z[st_ix_z + k] = Theta_shp[st_ix_theta + k] + Zconst[st_ix_z + k]
 				if Z[st_ix_z + k] > maxval:
 					maxval = Z[st_ix_z + k]
 			for k in range(K):
@@ -483,110 +539,58 @@ cdef void update_Z(real_t* Z, real_t* Theta_shp, real_t* Theta_rte,
 			for k in range(K):
 				Z[st_ix_z + k] *= W[i] / sumrow
 
-	else:
-		for i in prange(nW, schedule='static', num_threads=nthreads):
-			st_ix_z = i * K
-			st_ix_theta = ix_d[i] * K
-			st_ix_beta = ix_v[i] * K
-			sumrow = 0
-			for k in range(K):
-				Z[st_ix_z + k] = exp(psi(Theta_shp[st_ix_theta + k]) - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k]))
-				sumrow += Z[st_ix_z + k]
-			for k in range(K):
-				Z[st_ix_z + k] *= W[i] / sumrow
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Z_const_pred(real_t* Z, real_t* Theta_rte, real_t* Beta_shp, real_t* Beta_rte,
-							  ind_type* ix_d, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
-	cdef ind_type i, k
-	cdef ind_type st_ix_z, st_ix_beta
-
-	for i in prange(nW, schedule='static', num_threads=nthreads):
-		st_ix_z = i * K
-		st_ix_beta = ix_v[i] * K
-		for k in range(K):
-			Z[st_ix_z + k] = - log(Theta_rte[k]) + psi(Beta_shp[st_ix_beta + k]) - log(Beta_rte[k])
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef void update_Z_var_pred(real_t* Z, real_t* Zconst, real_t* W, real_t* Theta_shp, ind_type* ix_d,
-							ind_type nW, ind_type K, int nthreads) nogil:
-	cdef ind_type i, k
-	cdef ind_type st_ix_z, st_ix_theta
-	cdef real_t sumrow, maxval
-
-	for i in prange(nW, schedule='static', num_threads=nthreads):
-		st_ix_z = i * K
-		st_ix_theta = ix_d[i] * K
-		sumrow = 0
-		maxval = - HUGE_VAL_T
-		for k in range(K):
-			Z[st_ix_z + k] = Theta_shp[st_ix_theta + k] + Zconst[st_ix_z + k]
-			if Z[st_ix_z + k] > maxval:
-				maxval = Z[st_ix_z + k]
-		for k in range(K):
-			Z[st_ix_z + k] = exp_t(Z[st_ix_z + k] - maxval)
-			sumrow += Z[st_ix_z + k]
-		for k in range(K):
-			Z[st_ix_z + k] *= W[i] / sumrow
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Y(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte, real_t* Theta_shp, real_t* Theta_rte,
 				   real_t* Eps_shp, real_t* Eps_rte, real_t* R, ind_type* ix_u_r, ind_type* ix_d_r, int sum_exp_trick,
-				   ind_type nR, ind_type K, int nthreads) nogil:
+				   ind_type nR, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef real_t E_eta, sumrow, maxval
 
-	if sum_exp_trick:
-		for i in prange(nR, schedule='static', num_threads=nthreads):
-			st_ix_u = ix_u_r[i] * K
-			st_ix_d = ix_d_r[i] * K
-			st_ix_y = i * K
-			sumrow = 0
-			maxval = - HUGE_VAL_T
-			for k in range(K):
-				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
-				ix_2 = st_ix_d + k
-				Ya[st_ix_y + k] = E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k])
-				Yb[st_ix_y + k] = E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k])
-				if Ya[st_ix_y + k] > maxval:
-					maxval = Ya[st_ix_y + k]
-				if Yb[st_ix_y + k] > maxval:
-					maxval = Yb[st_ix_y + k]
-			for k in range(K):
-				Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
-				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
-			for k in range(K):
-				Ya[st_ix_y + k] *= R[i] / sumrow
-				Yb[st_ix_y + k] *= R[i] / sumrow
+	with nogil:
+		if sum_exp_trick:
+			for i in prange(nR, schedule='static', num_threads=nthreads):
+				st_ix_u = ix_u_r[i] * K
+				st_ix_d = ix_d_r[i] * K
+				st_ix_y = i * K
+				sumrow = 0
+				maxval = - HUGE_VAL_T
+				for k in range(K):
+					E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
+					ix_2 = st_ix_d + k
+					Ya[st_ix_y + k] = E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k])
+					Yb[st_ix_y + k] = E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k])
+					if Ya[st_ix_y + k] > maxval:
+						maxval = Ya[st_ix_y + k]
+					if Yb[st_ix_y + k] > maxval:
+						maxval = Yb[st_ix_y + k]
+				for k in range(K):
+					Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
+					Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
+					sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+				for k in range(K):
+					Ya[st_ix_y + k] *= R[i] / sumrow
+					Yb[st_ix_y + k] *= R[i] / sumrow
 
-	else:
+		else:
 
-		for i in prange(nR, schedule='static', num_threads=nthreads):
-			st_ix_u = ix_u_r[i] * K
-			st_ix_d = ix_d_r[i] * K
-			st_ix_y = i * K
-			sumrow = 0
-			for k in range(K):
-				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
-				ix_2 = st_ix_d + k
-				Ya[st_ix_y + k] = exp(E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k]))
-				Yb[st_ix_y + k] = exp(E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k]))
-				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
-			for k in range(K):
-				Ya[st_ix_y + k] *= R[i] / sumrow
-				Yb[st_ix_y + k] *= R[i] / sumrow
+			for i in prange(nR, schedule='static', num_threads=nthreads):
+				st_ix_u = ix_u_r[i] * K
+				st_ix_d = ix_d_r[i] * K
+				st_ix_y = i * K
+				sumrow = 0
+				for k in range(K):
+					E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
+					ix_2 = st_ix_d + k
+					Ya[st_ix_y + k] = exp(E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k]))
+					Yb[st_ix_y + k] = exp(E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k]))
+					sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+				for k in range(K):
+					Ya[st_ix_y + k] *= R[i] / sumrow
+					Yb[st_ix_y + k] *= R[i] / sumrow
 
 
 @cython.boundscheck(False)
@@ -596,37 +600,38 @@ cdef void update_Y(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte, rea
 cdef void update_Y_csr(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte,
 					   real_t* Theta_shp, real_t* Theta_rte, real_t* Eps_shp, real_t* Eps_rte,
 					   real_t* R, ind_type* ix_u_r, ind_type* docs_batch, ind_type* st_ix_doc,
-					   ind_type ndocs, ind_type K, int nthreads) nogil:
+					   ind_type ndocs, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type d, did, nobs, i, k
 	cdef ind_type st_ix_y, st_ix_u, st_ix_d, ix_2
 	cdef real_t E_eta, sumrow, maxval
 
 	## comment: using schedule='dynamic' results in NA values
-	for d in prange(ndocs, schedule='static', num_threads=nthreads):
-		did = docs_batch[d]
-		nobs = st_ix_doc[did + 1] - st_ix_doc[did]
-		st_ix_d = did * K
-		for i in range(nobs):
-			st_ix_u = ix_u_r[i + st_ix_doc[did]] * K
-			st_ix_y = i * K
-			sumrow = 0
-			maxval = - HUGE_VAL_T
-			for k in range(K):
-				E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
-				ix_2 = st_ix_d + k
-				Ya[st_ix_y + k] = E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k])
-				Yb[st_ix_y + k] = E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k])
-				if Ya[st_ix_y + k] > maxval:
-					maxval = Ya[st_ix_y + k]
-				if Yb[st_ix_y + k] > maxval:
-					maxval = Yb[st_ix_y + k]
-			for k in range(K):
-				Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
-				Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
-				sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
-			for k in range(K):
-				Ya[st_ix_y + k] *= R[i] / sumrow
-				Yb[st_ix_y + k] *= R[i] / sumrow
+	with nogil:
+		for d in prange(ndocs, schedule='static', num_threads=nthreads):
+			did = docs_batch[d]
+			nobs = st_ix_doc[did + 1] - st_ix_doc[did]
+			st_ix_d = did * K
+			for i in range(nobs):
+				st_ix_u = ix_u_r[i + st_ix_doc[did]] * K
+				st_ix_y = i * K
+				sumrow = 0
+				maxval = - HUGE_VAL_T
+				for k in range(K):
+					E_eta = psi(Eta_shp[st_ix_u + k]) - log(Eta_rte[k])
+					ix_2 = st_ix_d + k
+					Ya[st_ix_y + k] = E_eta + psi(Theta_shp[ix_2]) - log(Theta_rte[k])
+					Yb[st_ix_y + k] = E_eta + psi(Eps_shp[ix_2]) - log(Eps_rte[k])
+					if Ya[st_ix_y + k] > maxval:
+						maxval = Ya[st_ix_y + k]
+					if Yb[st_ix_y + k] > maxval:
+						maxval = Yb[st_ix_y + k]
+				for k in range(K):
+					Ya[st_ix_y + k] = exp_t(Ya[st_ix_y + k] - maxval)
+					Yb[st_ix_y + k] = exp_t(Yb[st_ix_y + k] - maxval)
+					sumrow += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+				for k in range(K):
+					Ya[st_ix_y + k] *= R[i] / sumrow
+					Yb[st_ix_y + k] *= R[i] / sumrow
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -634,31 +639,32 @@ cdef void update_Y_csr(real_t* Ya, real_t* Yb, real_t* Eta_shp, real_t* Eta_rte,
 @cython.cdivision(True)
 cdef void update_Theta_shp(real_t* Theta_shp, real_t* Z, real_t* Ya,
 						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
-						   int allow_inconsistent, int nthreads) nogil:
+						   int allow_inconsistent, int nthreads) noexcept nogil:
 	cdef ind_type i, j, k
 	cdef ind_type st_ix_theta, st_ix_z, st_ix_y
-	if allow_inconsistent:
-		for i in prange(nW, schedule='static', num_threads=nthreads):
-			st_ix_theta = ix_d_w[i] * K
-			st_ix_z = i * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
-		for j in prange(nR, schedule='static', num_threads=nthreads):
-			st_ix_theta = ix_d_r[j] * K
-			st_ix_y = j * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k]
-	else:
-		for i in range(nW):
-			st_ix_theta = ix_d_w[i] * K
-			st_ix_z = i * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
-		for j in range(nR):
-			st_ix_theta = ix_d_r[j] * K
-			st_ix_y = j * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k]
+	with nogil:
+		if allow_inconsistent:
+			for i in prange(nW, schedule='static', num_threads=nthreads):
+				st_ix_theta = ix_d_w[i] * K
+				st_ix_z = i * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
+			for j in prange(nR, schedule='static', num_threads=nthreads):
+				st_ix_theta = ix_d_r[j] * K
+				st_ix_y = j * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k]
+		else:
+			for i in range(nW):
+				st_ix_theta = ix_d_w[i] * K
+				st_ix_z = i * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
+			for j in range(nR):
+				st_ix_theta = ix_d_r[j] * K
+				st_ix_y = j * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k]
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -666,93 +672,98 @@ cdef void update_Theta_shp(real_t* Theta_shp, real_t* Z, real_t* Ya,
 @cython.cdivision(True)
 cdef void update_Theta_shp_wuser(real_t* Theta_shp, real_t* Z, real_t* Ya, real_t* Yb,
 						   ind_type* ix_d_w, ind_type* ix_d_r, ind_type nW, ind_type nR, ind_type K,
-						   int allow_inconsistent, int nthreads) nogil:
+						   int allow_inconsistent, int nthreads) noexcept nogil:
 	cdef ind_type i, j, k
 	cdef ind_type st_ix_theta, st_ix_z, st_ix_y
-	if allow_inconsistent:
-		for i in prange(nW, schedule='static', num_threads=nthreads):
-			st_ix_theta = ix_d_w[i] * K
-			st_ix_z = i * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
-		for j in prange(nR, schedule='static', num_threads=nthreads):
-			st_ix_theta = ix_d_r[j] * K
-			st_ix_y = j * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
-	else:
-		for i in range(nW):
-			st_ix_theta = ix_d_w[i] * K
-			st_ix_z = i * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
-		for j in range(nR):
-			st_ix_theta = ix_d_r[j] * K
-			st_ix_y = j * K
-			for k in range(K):
-				Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+	with nogil:
+		if allow_inconsistent:
+			for i in prange(nW, schedule='static', num_threads=nthreads):
+				st_ix_theta = ix_d_w[i] * K
+				st_ix_z = i * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
+			for j in prange(nR, schedule='static', num_threads=nthreads):
+				st_ix_theta = ix_d_r[j] * K
+				st_ix_y = j * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+		else:
+			for i in range(nW):
+				st_ix_theta = ix_d_w[i] * K
+				st_ix_z = i * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
+			for j in range(nR):
+				st_ix_theta = ix_d_r[j] * K
+				st_ix_y = j * K
+				for k in range(K):
+					Theta_shp[st_ix_theta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Theta_shp_pred(real_t* Theta_shp, real_t* Z, ind_type* ix_d,
-								ind_type nW, ind_type K, int nthreads) nogil:
+								ind_type nW, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_theta, st_ix_z
-	for i in prange(nW, schedule='static', num_threads=nthreads):
-		st_ix_theta = ix_d[i] * K
-		st_ix_z = i * K
-		for k in range(K):
-			Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
+	with nogil:
+		for i in prange(nW, schedule='static', num_threads=nthreads):
+			st_ix_theta = ix_d[i] * K
+			st_ix_z = i * K
+			for k in range(K):
+				Theta_shp[st_ix_theta + k] += Z[st_ix_z + k]
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef void update_Beta_shp(real_t* Beta_shp, real_t* Z, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) nogil:
+cdef void update_Beta_shp(real_t* Beta_shp, real_t* Z, ind_type* ix_v, ind_type nW, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_beta, st_ix_Z
-	for i in prange(nW, schedule='static', num_threads=nthreads):
-		st_ix_Z = i * K
-		st_ix_beta = ix_v[i] * K
-		for k in range(K):
-			Beta_shp[st_ix_beta + k] += Z[st_ix_Z + k]
+	with nogil:
+		for i in prange(nW, schedule='static', num_threads=nthreads):
+			st_ix_Z = i * K
+			st_ix_beta = ix_v[i] * K
+			for k in range(K):
+				Beta_shp[st_ix_beta + k] += Z[st_ix_Z + k]
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Eta_shp(real_t* Eta_shp, real_t* Ya, real_t* Yb,
-						 ind_type* ix_u, ind_type nR, ind_type K, int nthreads) nogil:
+						 ind_type* ix_u, ind_type nR, ind_type K, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_y, st_ix_eta
-	for i in prange(nR, schedule='static', num_threads=nthreads):
-		st_ix_eta = ix_u[i] * K
-		st_ix_y = i * K
-		for k in range(K):
-			Eta_shp[st_ix_eta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
+	with nogil:
+		for i in prange(nR, schedule='static', num_threads=nthreads):
+			st_ix_eta = ix_u[i] * K
+			st_ix_y = i * K
+			for k in range(K):
+				Eta_shp[st_ix_eta + k] += Ya[st_ix_y + k] + Yb[st_ix_y + k]
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef void update_Eps_shp(real_t* Eps_shp, real_t* Yb, ind_type* ix_d, ind_type nR, ind_type K,
-						 int allow_inconsistent, int nthreads) nogil:
+						 int allow_inconsistent, int nthreads) noexcept nogil:
 	cdef ind_type i, k
 	cdef ind_type st_ix_eps, st_ix_y
-	if allow_inconsistent:
-		for i in prange(nR, schedule='static', num_threads=nthreads):
-			st_ix_eps = ix_d[i] * K
-			st_ix_y = i * K
-			for k in range(K):
-				Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
-	else:
-		for i in range(nR):
-			st_ix_eps = ix_d[i] * K
-			st_ix_y = i * K
-			for k in range(K):
-				Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
+	with nogil:
+		if allow_inconsistent:
+			for i in prange(nR, schedule='static', num_threads=nthreads):
+				st_ix_eps = ix_d[i] * K
+				st_ix_y = i * K
+				for k in range(K):
+					Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
+		else:
+			for i in range(nR):
+				st_ix_eps = ix_d[i] * K
+				st_ix_y = i * K
+				for k in range(K):
+					Eps_shp[st_ix_eps + k] += Yb[st_ix_y + k]
 
 ## this function was copy-pasted from hpfrec, thus the variable names
 @cython.boundscheck(False)
@@ -761,35 +772,36 @@ cdef void update_Eps_shp(real_t* Eps_shp, real_t* Yb, ind_type* ix_d, ind_type n
 @cython.cdivision(True)
 cdef void llk_plus_rmse(real_t* T, real_t* B, real_t* Y,
 						ind_type* ix_u, ind_type* ix_i, ind_type nY, ind_type kszt,
-						long_double_type* out, int nthreads, int add_mse, int full_llk) nogil:
+						long_double_type* out, int nthreads, int add_mse, int full_llk) noexcept nogil:
 	cdef ind_type i
 	cdef int one = 1
 	cdef real_t yhat
 	cdef long_double_type out1 = 0
 	cdef long_double_type out2 =  0
 	cdef int k = <int> kszt
-	if add_mse:
-		if full_llk:
-			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
-				out1 += Y[i]*log(yhat) - loggamma(Y[i] + 1)
-				out2 += (Y[i] - yhat)**2
-		else:
-			for i in prange(nY, schedule='static', num_threads=nthreads):
-				yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
-				out1 += Y[i]*log_t(yhat)
-				out2 += (Y[i] - yhat)**2
-		out[0] = out1
-		out[1] = out2
-	else:
-		if full_llk:
-			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - loggamma(Y[i] + 1)
+	with nogil:
+		if add_mse:
+			if full_llk:
+				for i in prange(nY, schedule='static', num_threads=nthreads):
+					yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
+					out1 += Y[i]*log(yhat) - loggamma(Y[i] + 1)
+					out2 += (Y[i] - yhat)**2
+			else:
+				for i in prange(nY, schedule='static', num_threads=nthreads):
+					yhat = tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)
+					out1 += Y[i]*log_t(yhat)
+					out2 += (Y[i] - yhat)**2
 			out[0] = out1
+			out[1] = out2
 		else:
-			for i in prange(nY, schedule='static', num_threads=nthreads):
-				out1 += Y[i]*log_t(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
-			out[0] = out1
+			if full_llk:
+				for i in prange(nY, schedule='static', num_threads=nthreads):
+					out1 += Y[i]*log(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one)) - loggamma(Y[i] + 1)
+				out[0] = out1
+			else:
+				for i in prange(nY, schedule='static', num_threads=nthreads):
+					out1 += Y[i]*log_t(tdot(&k, &T[ix_u[i] * kszt], &one, &B[ix_i[i] * kszt], &one))
+				out[0] = out1
 	### Comment: adding += directly to *out triggers compiler optimizations that produce
 	### different (and wrong) results across different runs.
 
